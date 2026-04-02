@@ -1,0 +1,163 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/vouch?schema=public
+      - REDIS_URL=redis://redis:6379
+      - GITHUB_APP_ID=${GITHUB_APP_ID}
+      - GITHUB_PRIVATE_KEY=${GITHUB_PRIVATE_KEY}
+      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ANTHROPIC_HAIKU_MODEL=${ANTHROPIC_HAIKU_MODEL:-claude-3-5-haiku-20241022}
+      - ANTHROPIC_SONNET_MODEL=${ANTHROPIC_SONNET_MODEL:-claude-3-5-sonnet-20241022}
+      - LLM_CONFIDENCE_THRESHOLD=${LLM_CONFIDENCE_THRESHOLD:-0.7}
+      - LLM_COST_BUDGET_PER_PR_CENTS=${LLM_COST_BUDGET_PER_PR_CENTS:-50}
+      - FREE_TIER_PR_LIMIT=${FREE_TIER_PR_LIMIT:-100}
+      - PRO_TIER_PRICE_CENTS=${PRO_TIER_PRICE_CENTS:-2900}
+      - EU_AI_ACT_COMPLIANCE_MODE=${EU_AI_ACT_COMPLIANCE_MODE:-true}
+      - AUDIT_LOG_RETENTION_DAYS=${AUDIT_LOG_RETENTION_DAYS:-2555}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=100m
+    networks:
+      - vouch-network
+
+  worker:
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+    command: ["dumb-init", "--", "node", "dist/worker.js"]
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/vouch?schema=public
+      - REDIS_URL=redis://redis:6379
+      - GITHUB_APP_ID=${GITHUB_APP_ID}
+      - GITHUB_PRIVATE_KEY=${GITHUB_PRIVATE_KEY}
+      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ANTHROPIC_HAIKU_MODEL=${ANTHROPIC_HAIKU_MODEL:-claude-3-5-haiku-20241022}
+      - ANTHROPIC_SONNET_MODEL=${ANTHROPIC_SONNET_MODEL:-claude-3-5-sonnet-20241022}
+      - LLM_CONFIDENCE_THRESHOLD=${LLM_CONFIDENCE_THRESHOLD:-0.7}
+      - LLM_COST_BUDGET_PER_PR_CENTS=${LLM_COST_BUDGET_PER_PR_CENTS:-50}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      replicas: 2
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - vouch-network
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=vouch
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - vouch-network
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - vouch-network
+
+  # Optional: Self-hosted LLM with Ollama
+  ollama:
+    build:
+      context: ./ollama
+      dockerfile: Dockerfile
+    volumes:
+      - ollama-data:/root/.ollama
+    ports:
+      - "11434:11434"
+    environment:
+      - OLLAMA_MODELS=codellama:7b-code
+    profiles:
+      - airgap
+    networks:
+      - vouch-network
+
+  # Optional: Monitoring with Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    profiles:
+      - monitoring
+    networks:
+      - vouch-network
+
+  # Optional: Monitoring with Grafana
+  grafana:
+    image: grafana/grafana:latest
+    volumes:
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    profiles:
+      - monitoring
+    networks:
+      - vouch-network
+
+volumes:
+  postgres-data:
+  redis-data:
+  ollama-data:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  vouch-network:
+    driver: bridge
