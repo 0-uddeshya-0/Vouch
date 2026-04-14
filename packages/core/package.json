@@ -1,0 +1,30 @@
+{
+  "name": "@vouch/core",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "test": "jest --config jest.config.cjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@octokit/rest": "^20.0.0",
+    "@vouch/config": "file:../config",
+    "@vouch/types": "file:../types",
+    "jsonwebtoken": "^9.0.0",
+    "tree-sitter": "^0.21.1",
+    "tree-sitter-python": "^0.21.0",
+    "typescript": "^5.4.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "@types/jsonwebtoken": "^9.0.0",
+    "@types/node": "^20.11.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.2",
+    "typescript": "^5.4.0"
+  }
+}

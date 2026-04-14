@@ -1,0 +1,123 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Installation {
+  id           Int      @id @default(autoincrement())
+  githubId     Int      @unique
+  accountLogin String
+  accountType  String // 'User' | 'Organization'
+  plan         String   @default("free") // free, pro, enterprise
+  status       String   @default("active")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  repos        Repo[]
+  auditLogs    AuditLog[]
+  usageRecords UsageRecord[]
+
+  @@index([githubId])
+  @@index([plan])
+}
+
+model Repo {
+  id            Int      @id @default(autoincrement())
+  installationId Int
+  githubId      Int      @unique
+  fullName      String
+  private       Boolean
+  defaultBranch String
+
+  installation  Installation @relation(fields: [installationId], references: [id])
+  analyses      Analysis[]
+
+  @@index([installationId])
+  @@index([fullName])
+}
+
+model Analysis {
+  id            String   @id @default(uuid())
+  repoId        Int
+  prNumber      Int
+  commitSha     String
+  status        String // pending, processing, completed, error
+
+  // Cost tracking
+  llmTier1Calls Int      @default(0) // Haiku
+  llmTier2Calls Int      @default(0) // Sonnet
+  estimatedCost Decimal  @default(0) @db.Decimal(10, 6)
+
+  // Timing
+  startedAt     DateTime @default(now())
+  completedAt   DateTime?
+
+  repo          Repo     @relation(fields: [repoId], references: [id])
+  findings      Finding[]
+
+  @@index([repoId, prNumber])
+  @@index([startedAt])
+}
+
+model Finding {
+  id              String   @id @default(uuid())
+  analysisId      String
+  type            String // hallucination, security, anti-pattern
+  severity        String // critical, high, medium, low
+  confidence      Float // 0.0 - 1.0
+
+  // Location
+  filePath        String
+  lineStart       Int
+  lineEnd         Int
+
+  // Content
+  title           String
+  description     String
+  codeSnippet     String?
+
+  // Resolution
+  status          String   @default("open") // open, dismissed, resolved
+  dismissedBy     String?
+  dismissedAt     DateTime?
+  dismissalReason String?
+
+  // Metadata
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  analysis        Analysis @relation(fields: [analysisId], references: [id])
+
+  @@index([analysisId])
+  @@index([type, severity])
+}
+
+model AuditLog {
+  id             String   @id @default(uuid())
+  installationId Int
+  eventType      String // webhook_received, analysis_started, finding_created, finding_dismissed
+  payload        Json
+  createdAt      DateTime @default(now())
+
+  installation   Installation @relation(fields: [installationId], references: [id])
+
+  @@index([installationId, createdAt])
+  @@index([eventType])
+}
+
+model UsageRecord {
+  id            String   @id @default(uuid())
+  installationId Int
+  date          DateTime @db.Date
+  prsAnalyzed   Int      @default(0)
+  llmTokensUsed Int      @default(0)
+  estimatedCost Decimal  @default(0) @db.Decimal(10, 6)
+
+  installation  Installation @relation(fields: [installationId], references: [id])
+
+  @@unique([installationId, date])
+}
