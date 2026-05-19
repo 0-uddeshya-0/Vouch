@@ -1,6 +1,8 @@
 export { LLMRouter } from './llm/router';
-export { npmAnalyzer } from './analyzers/npm';
-export { pypiAnalyzer } from './analyzers/pypi';
+export { createNpmAnalyzer, npmAnalyzer } from './analyzers/npm';
+export type { NpmAnalyzer } from './analyzers/npm';
+export { createPypiAnalyzer, pypiAnalyzer } from './analyzers/pypi';
+export type { PypiAnalyzer } from './analyzers/pypi';
 export { scanForSecrets } from './security/secrets';
 export { entropyScanner } from './security/entropy';
 export { formatPRComment } from './format/comment';

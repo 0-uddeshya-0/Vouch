@@ -18,6 +18,10 @@ export async function verifySignature(
   request: FastifyRequest,
   reply: FastifyReply
 ): Promise<void> {
+  if (!request.url.startsWith('/webhooks/github')) {
+    return;
+  }
+
   const signature = request.headers['x-hub-signature-256'] as string | undefined;
   const deliveryId = request.headers['x-github-delivery'] as string | undefined;
   
@@ -27,7 +31,7 @@ export async function verifySignature(
       reason: 'missing_signature',
       ip: request.ip,
       path: request.url,
-    }, { ip: request.ip });
+    });
     
     reply.code(401).send({ 
       error: 'Unauthorized',
@@ -73,9 +77,8 @@ export async function verifySignature(
       reason: 'invalid_signature',
       ip: request.ip,
       deliveryId,
-      // Log signature prefix for debugging (safe - not the full signature)
-      signaturePrefix: signature.substring(0, 20) + '...',
-    }, { ip: request.ip });
+      signaturePrefix: `${signature.substring(0, 20)}...`,
+    });
     
     reply.code(401).send({ 
       error: 'Unauthorized',
@@ -84,14 +87,13 @@ export async function verifySignature(
     return;
   }
   
-  // Attach delivery ID for idempotency check
-  request.headers['x-github-delivery'] = deliveryId;
-  
+  request.deliveryId = deliveryId;
+
   auditLogger.log('webhook_signature_verified', {
     deliveryId,
     event: request.headers['x-github-event'],
     ip: request.ip,
-  }, { ip: request.ip });
+  });
 }
 
 /**

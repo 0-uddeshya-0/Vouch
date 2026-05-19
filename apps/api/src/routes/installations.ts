@@ -4,14 +4,13 @@
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import type { Analysis, UsageRecord } from '@prisma/client';
 import { apiRateLimiter } from '../middleware/rate-limit';
 
 export async function installationRoutes(fastify: FastifyInstance): Promise<void> {
-  // Apply rate limiting to all routes
   fastify.addHook('preHandler', apiRateLimiter);
-  
-  // List installations
-  fastify.get('/installations', async (request: FastifyRequest, reply: FastifyReply) => {
+
+  fastify.get('/installations', async (_request: FastifyRequest, _reply: FastifyReply) => {
     const installations = await fastify.prisma.installation.findMany({
       include: {
         _count: {
@@ -19,8 +18,8 @@ export async function installationRoutes(fastify: FastifyInstance): Promise<void
         },
       },
     });
-    
-    return installations.map(inst => ({
+
+    return installations.map((inst) => ({
       id: inst.id,
       githubId: inst.githubId,
       accountLogin: inst.accountLogin,
@@ -32,31 +31,30 @@ export async function installationRoutes(fastify: FastifyInstance): Promise<void
       repoCount: inst._count.repos,
     }));
   });
-  
-  // Get installation by ID
+
   fastify.get('/installations/:id', async (
     request: FastifyRequest<{ Params: { id: string } }>,
     reply: FastifyReply
   ) => {
     const id = parseInt(request.params.id, 10);
-    
-    if (isNaN(id)) {
+
+    if (Number.isNaN(id)) {
       reply.code(400);
       return { error: 'Invalid installation ID' };
     }
-    
+
     const installation = await fastify.prisma.installation.findUnique({
       where: { id },
       include: {
         repos: true,
       },
     });
-    
+
     if (!installation) {
       reply.code(404);
       return { error: 'Installation not found' };
     }
-    
+
     return {
       id: installation.id,
       githubId: installation.githubId,
@@ -66,7 +64,7 @@ export async function installationRoutes(fastify: FastifyInstance): Promise<void
       status: installation.status,
       createdAt: installation.createdAt.toISOString(),
       updatedAt: installation.updatedAt.toISOString(),
-      repos: installation.repos.map(repo => ({
+      repos: installation.repos.map((repo) => ({
         id: repo.id,
         githubId: repo.githubId,
         fullName: repo.fullName,
@@ -75,8 +73,7 @@ export async function installationRoutes(fastify: FastifyInstance): Promise<void
       })),
     };
   });
-  
-  // Update installation plan
+
   fastify.patch('/installations/:id', async (
     request: FastifyRequest<{
       Params: { id: string };
@@ -85,24 +82,24 @@ export async function installationRoutes(fastify: FastifyInstance): Promise<void
     reply: FastifyReply
   ) => {
     const id = parseInt(request.params.id, 10);
-    
-    if (isNaN(id)) {
+
+    if (Number.isNaN(id)) {
       reply.code(400);
       return { error: 'Invalid installation ID' };
     }
-    
+
     const { plan } = request.body;
-    
+
     if (plan && !['free', 'pro', 'enterprise'].includes(plan)) {
       reply.code(400);
       return { error: 'Invalid plan. Must be free, pro, or enterprise' };
     }
-    
+
     const installation = await fastify.prisma.installation.update({
       where: { id },
       data: { plan },
     });
-    
+
     return {
       id: installation.id,
       githubId: installation.githubId,
@@ -111,22 +108,21 @@ export async function installationRoutes(fastify: FastifyInstance): Promise<void
       status: installation.status,
     };
   });
-  
-  // Get installation usage
+
   fastify.get('/installations/:id/usage', async (
     request: FastifyRequest<{ Params: { id: string } }>,
     reply: FastifyReply
   ) => {
     const id = parseInt(request.params.id, 10);
-    
-    if (isNaN(id)) {
+
+    if (Number.isNaN(id)) {
       reply.code(400);
       return { error: 'Invalid installation ID' };
     }
-    
+
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    
+
     const [usage, analyses] = await Promise.all([
       fastify.prisma.usageRecord.findMany({
         where: {
@@ -147,30 +143,34 @@ export async function installationRoutes(fastify: FastifyInstance): Promise<void
         },
       }),
     ]);
-    
-    const totals = analyses.reduce(
-      (acc, curr) => ({
+
+    const totals = analyses.reduce<{
+      llmTier1Calls: number;
+      llmTier2Calls: number;
+      estimatedCost: number;
+    }>(
+      (acc, curr: Pick<Analysis, 'llmTier1Calls' | 'llmTier2Calls' | 'estimatedCost'>) => ({
         llmTier1Calls: acc.llmTier1Calls + curr.llmTier1Calls,
         llmTier2Calls: acc.llmTier2Calls + curr.llmTier2Calls,
         estimatedCost: acc.estimatedCost + Number(curr.estimatedCost),
       }),
       { llmTier1Calls: 0, llmTier2Calls: 0, estimatedCost: 0 }
     );
-    
+
     return {
       installationId: id,
       period: {
         start: thirtyDaysAgo.toISOString(),
         end: new Date().toISOString(),
       },
-      daily: usage.map(u => ({
+      daily: usage.map((u: UsageRecord) => ({
         date: u.date.toISOString(),
         prsAnalyzed: u.prsAnalyzed,
         llmTokensUsed: u.llmTokensUsed,
         estimatedCost: Number(u.estimatedCost),
       })),
       totals: {
-        prsAnalyzed: usage.reduce((sum, u) => sum + u.prsAnalyzed, 0),
+        prsAnalyzed: usage.reduce((sum: number, u: UsageRecord) => sum + u.prsAnalyzed, 0),
         llmTier1Calls: totals.llmTier1Calls,
         llmTier2Calls: totals.llmTier2Calls,
         estimatedCost: totals.estimatedCost,
