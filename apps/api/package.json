@@ -12,9 +12,9 @@
   },
   "dependencies": {
     "@fastify/cors": "^8.5.0",
-    "@vouch/config": "file:../../packages/config",
-    "@vouch/core": "file:../../packages/core",
-    "@vouch/types": "file:../../packages/types",
+    "@vouch/config": "workspace:*",
+    "@vouch/core": "workspace:*",
+    "@vouch/types": "workspace:*",
     "@octokit/rest": "^20.0.0",
     "@octokit/webhooks": "^12.0.0",
     "@prisma/client": "^5.10.0",

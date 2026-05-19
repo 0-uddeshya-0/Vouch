@@ -12,8 +12,9 @@
   },
   "dependencies": {
     "@octokit/rest": "^20.0.0",
-    "@vouch/config": "file:../config",
-    "@vouch/types": "file:../types",
+    "@vouch/config": "workspace:*",
+    "@vouch/types": "workspace:*",
+    "zod": "^3.22.4",
     "jsonwebtoken": "^9.0.0",
     "tree-sitter": "^0.21.1",
     "tree-sitter-python": "^0.21.0",

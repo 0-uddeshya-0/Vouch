@@ -8,7 +8,6 @@ import { Worker } from 'bullmq';
 import { Redis } from 'ioredis';
 import {
   LLMRouter,
-  createNpmAnalyzer,
   createPypiAnalyzer,
   RegistryClient,
   scanForSecrets,
@@ -25,6 +24,9 @@ import {
   auditLogger,
   analyzeDependencyQuality,
   analyzeDeclaredDependencies,
+  createNpmAnalyzer,
+  fetchRepoConfig,
+  type RepoConfig,
 } from '@vouch/core';
 import { getPrisma } from './plugins';
 import type { FindingInput } from '@vouch/types';
@@ -49,7 +51,6 @@ interface PrFileInput {
 const redis = new Redis(env.REDIS_URL);
 const registryCache = new RedisRegistryCacheAdapter(redis);
 const registryClient = new RegistryClient({ cache: registryCache });
-const npmAnalyzer = createNpmAnalyzer(registryClient);
 const pypiAnalyzer = createPypiAnalyzer(registryClient);
 
 const llmRouter = new LLMRouter();
@@ -142,7 +143,8 @@ function parseAddedPyprojectDeps(patch: string): string[] {
  */
 function analyzeDependencyQualityForPr(
   files: PrFileInput[],
-  importedPackages: readonly string[]
+  importedPackages: readonly string[],
+  repoConfig: RepoConfig
 ): FindingInput[] {
   const findings: FindingInput[] = [];
 
@@ -153,6 +155,7 @@ function analyzeDependencyQualityForPr(
         packageJsonPatch: packageJsonFile.patch,
         filePath: packageJsonFile.filename,
         importedPackages,
+        repoConfig,
       })
     );
   }
@@ -162,7 +165,7 @@ function analyzeDependencyQualityForPr(
     const deps = parseAddedRequirementsDeps(requirementsFile.patch);
     if (deps.length > 0) {
       findings.push(
-        ...analyzeDeclaredDependencies(deps, importedPackages, requirementsFile.filename)
+        ...analyzeDeclaredDependencies(deps, importedPackages, requirementsFile.filename, repoConfig)
       );
     }
   }
@@ -172,7 +175,7 @@ function analyzeDependencyQualityForPr(
     const deps = parseAddedPyprojectDeps(pyprojectFile.patch);
     if (deps.length > 0) {
       findings.push(
-        ...analyzeDeclaredDependencies(deps, importedPackages, pyprojectFile.filename)
+        ...analyzeDeclaredDependencies(deps, importedPackages, pyprojectFile.filename, repoConfig)
       );
     }
   }
@@ -187,6 +190,7 @@ const worker = new Worker<AnalysisJob>('pr-analysis', async (job) => {
     repoFullName,
     prNumber,
     commitSha,
+    defaultBranch,
   } = job.data;
 
   console.log(`Processing analysis ${analysisId} for ${repoFullName}#${prNumber}`);
@@ -206,6 +210,8 @@ const worker = new Worker<AnalysisJob>('pr-analysis', async (job) => {
 
   try {
     const octokit = await getInstallationOctokit(installationId);
+    const repoConfig = await fetchRepoConfig(octokit, owner, repo, defaultBranch);
+    const npmAnalyzer = createNpmAnalyzer(registryClient, repoConfig);
     const checkRunManager = new CheckRunManager(octokit);
 
     const checkRun = await checkRunManager.createCheckRun({
@@ -232,12 +238,12 @@ const worker = new Worker<AnalysisJob>('pr-analysis', async (job) => {
     const allFindings: FindingInput[] = [];
 
     for (const file of prFiles) {
-      const findings = await analyzeFile(file.filename, file.patch, file.status);
+      const findings = await analyzeFile(file.filename, file.patch, file.status, npmAnalyzer);
       allFindings.push(...findings);
     }
 
     const importedPackages = collectImportedPackages(prFiles);
-    const qualityFindings = analyzeDependencyQualityForPr(prFiles, importedPackages);
+    const qualityFindings = analyzeDependencyQualityForPr(prFiles, importedPackages, repoConfig);
     allFindings.push(...qualityFindings);
 
     for (const finding of allFindings) {
@@ -361,7 +367,8 @@ const worker = new Worker<AnalysisJob>('pr-analysis', async (job) => {
 async function analyzeFile(
   filename: string,
   patch: string,
-  _status: string
+  _status: string,
+  npmAnalyzer: ReturnType<typeof createNpmAnalyzer>
 ): Promise<FindingInput[]> {
   const findings: FindingInput[] = [];
 

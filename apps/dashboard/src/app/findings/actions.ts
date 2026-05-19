@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { getServerSession } from 'next-auth';
+import type { Session } from 'next-auth';
 import { z } from 'zod';
 import { authOptions } from '@/auth';
 import { prisma } from '@/lib/prisma';
@@ -14,7 +15,7 @@ export type DismissFindingResult =
   | { ok: true }
   | { ok: false; error: string };
 
-function resolveDismissedByUser(session: NonNullable<Awaited<ReturnType<typeof getServerSession>>>): string {
+function resolveDismissedByUser(session: Session): string {
   const user = session.user;
   return user?.login ?? user?.name ?? user?.email ?? 'unknown';
 }
