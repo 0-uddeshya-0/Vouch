@@ -3,6 +3,14 @@ export { createNpmAnalyzer, npmAnalyzer } from './analyzers/npm';
 export type { NpmAnalyzer } from './analyzers/npm';
 export { createPypiAnalyzer, pypiAnalyzer } from './analyzers/pypi';
 export type { PypiAnalyzer } from './analyzers/pypi';
+export {
+  analyzeDependencyQuality,
+  analyzeDeclaredDependencies,
+  DEPENDENCY_OVERLAP_GROUPS,
+  NATIVE_PACKAGE_ALTERNATIVES,
+} from './analyzers/quality-analyzer';
+export type { QualityAnalyzerInput } from './analyzers/quality-analyzer';
+export type { NativeAlternativeInfo, OverlapGroup } from './analyzers/quality-maps';
 export { scanForSecrets } from './security/secrets';
 export { entropyScanner } from './security/entropy';
 export { formatPRComment } from './format/comment';
