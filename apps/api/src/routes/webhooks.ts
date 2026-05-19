@@ -6,7 +6,7 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { Queue } from 'bullmq';
 import Redis from 'ioredis';
-import { env } from '@vouch/config';
+import { env } from '@vouch/config/env';
 import { auditLogger } from '@vouch/core';
 import type { PullRequestWebhookPayload } from '@vouch/types';
 

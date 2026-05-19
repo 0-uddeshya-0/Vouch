@@ -5,7 +5,7 @@
 
 import { Redis } from 'ioredis';
 import type { FastifyRequest, FastifyReply } from 'fastify';
-import { env } from '@vouch/config';
+import { env } from '@vouch/config/env';
 import { auditLogger } from '@vouch/core';
 
 const redis = new Redis(env.REDIS_URL);

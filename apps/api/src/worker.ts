@@ -3,9 +3,9 @@
  * BullMQ worker for processing PR analysis jobs
  */
 
+import { env } from '@vouch/config/env';
 import { Worker } from 'bullmq';
 import { Redis } from 'ioredis';
-import { env } from '@vouch/config';
 import {
   LLMRouter,
   createNpmAnalyzer,
