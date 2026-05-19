@@ -3,23 +3,30 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "next build",
-    "dev": "next dev -p 3002",
-    "start": "next start",
+    "build": "prisma generate --schema=../../prisma/schema.prisma && next build",
+    "dev": "prisma generate --schema=../../prisma/schema.prisma && next dev -p 3002",
+    "start": "next start -p 3002",
     "lint": "next lint",
-    "clean": "rm -rf .next"
+    "clean": "rm -rf .next",
+    "db:generate": "prisma generate --schema=../../prisma/schema.prisma"
   },
   "dependencies": {
+    "@prisma/client": "^5.10.0",
     "@vouch/config": "file:../../packages/config",
     "@vouch/types": "file:../../packages/types",
     "next": "14.1.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "@prisma/client": "^5.10.0"
+    "zod": "^3.22.4"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
     "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "autoprefixer": "^10.4.18",
+    "postcss": "^8.4.35",
+    "prisma": "^5.10.0",
+    "tailwindcss": "^3.4.1",
     "typescript": "^5.4.0"
   }
 }
