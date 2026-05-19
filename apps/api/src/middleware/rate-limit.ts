@@ -27,7 +27,8 @@ export function createRateLimiter(config: Partial<RateLimitConfig> = {}) {
     request: FastifyRequest,
     reply: FastifyReply
   ): Promise<void> => {
-    const installationId = request.params?.installationId || 'global';
+    const params = request.params as { installationId?: string };
+    const installationId = params.installationId ?? 'global';
     const key = `ratelimit:${installationId}`;
     
     try {

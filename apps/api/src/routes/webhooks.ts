@@ -5,65 +5,70 @@
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { Queue } from 'bullmq';
+import Redis from 'ioredis';
 import { env } from '@vouch/config';
 import { auditLogger } from '@vouch/core';
 import type { PullRequestWebhookPayload } from '@vouch/types';
 
-// Analysis job queue
-const analysisQueue = new Queue('pr-analysis', {
-  connection: new (await import('ioredis')).default(env.REDIS_URL),
-});
+let analysisQueue: Queue | null = null;
+
+function getAnalysisQueue(): Queue {
+  if (!analysisQueue) {
+    const connection = new Redis(env.REDIS_URL, { maxRetriesPerRequest: null });
+    analysisQueue = new Queue('pr-analysis', { connection });
+  }
+  return analysisQueue;
+}
 
 export async function webhookRoutes(fastify: FastifyInstance): Promise<void> {
-  // GitHub webhook endpoint
   fastify.post('/webhooks/github', async (
     request: FastifyRequest<{ Body: PullRequestWebhookPayload }>,
     reply: FastifyReply
   ) => {
     const event = request.headers['x-github-event'] as string;
     const deliveryId = request.deliveryId;
-    
+
     fastify.log.info({ event, deliveryId }, 'Received GitHub webhook');
-    
+
     try {
       switch (event) {
         case 'pull_request':
           await handlePullRequestEvent(request.body, fastify);
           break;
-          
+
         case 'installation':
           await handleInstallationEvent(request.body, fastify);
           break;
-          
+
         case 'installation_repositories':
           await handleInstallationRepositoriesEvent(request.body, fastify);
           break;
-          
+
         default:
           fastify.log.debug({ event }, 'Unhandled webhook event');
       }
-      
+
       auditLogger.log('webhook_processed', {
-        deliveryId,
+        deliveryId: deliveryId ?? '',
         event,
         action: request.body.action,
       });
-      
+
       return { status: 'ok', event };
-      
+
     } catch (error) {
       fastify.log.error(error, 'Error processing webhook');
-      
+
       auditLogger.log('webhook_failed', {
-        deliveryId,
+        deliveryId: deliveryId ?? '',
         event,
         error: error instanceof Error ? error.message : 'Unknown error',
       });
-      
+
       reply.code(500);
-      return { 
-        status: 'error', 
-        message: error instanceof Error ? error.message : 'Internal server error'
+      return {
+        status: 'error',
+        message: error instanceof Error ? error.message : 'Internal server error',
       };
     }
   });
@@ -74,18 +79,16 @@ async function handlePullRequestEvent(
   fastify: FastifyInstance
 ): Promise<void> {
   const { action, pull_request, repository, installation } = payload;
-  
-  // Only process relevant actions
-  if (!['opened', 'synchronize', 'reopened'].includes(action)) {
+
+  if (!['opened', 'synchronize', 'reopened'].includes(action ?? '')) {
     return;
   }
-  
-  if (!installation) {
-    throw new Error('Missing installation ID');
+
+  if (!installation?.account || !pull_request || !repository) {
+    throw new Error('Missing installation, pull_request, or repository');
   }
-  
-  // Create or update installation record
-  await fastify.prisma.installation.upsert({
+
+  const inst = await fastify.prisma.installation.upsert({
     where: { githubId: installation.id },
     update: {
       accountLogin: installation.account.login,
@@ -99,9 +102,8 @@ async function handlePullRequestEvent(
       status: 'active',
     },
   });
-  
-  // Create or update repo record
-  await fastify.prisma.repo.upsert({
+
+  const repoRow = await fastify.prisma.repo.upsert({
     where: { githubId: repository.id },
     update: {
       fullName: repository.full_name,
@@ -109,29 +111,28 @@ async function handlePullRequestEvent(
       defaultBranch: repository.default_branch,
     },
     create: {
-      installationId: installation.id,
+      installationId: inst.id,
       githubId: repository.id,
       fullName: repository.full_name,
       private: repository.private,
       defaultBranch: repository.default_branch,
     },
   });
-  
-  // Create analysis record
+
   const analysis = await fastify.prisma.analysis.create({
     data: {
-      repoId: repository.id,
+      repoId: repoRow.id,
       prNumber: pull_request.number,
       commitSha: pull_request.head.sha,
       status: 'pending',
     },
   });
-  
-  // Queue analysis job
-  await analysisQueue.add('analyze-pr', {
+
+  const queue = getAnalysisQueue();
+  await queue.add('analyze-pr', {
     analysisId: analysis.id,
     installationId: installation.id,
-    repoId: repository.id,
+    repoId: repoRow.id,
     repoFullName: repository.full_name,
     prNumber: pull_request.number,
     commitSha: pull_request.head.sha,
@@ -145,21 +146,27 @@ async function handlePullRequestEvent(
     removeOnComplete: 100,
     removeOnFail: 50,
   });
-  
+
   auditLogger.log('analysis_started', {
     analysisId: analysis.id,
     installationId: installation.id,
-    repoId: repository.id,
+    repoId: repoRow.id,
     prNumber: pull_request.number,
   });
 }
 
 async function handleInstallationEvent(
-  payload: any,
+  payload: PullRequestWebhookPayload & {
+    installation?: { id: number; account?: { login: string; type: string } };
+  },
   fastify: FastifyInstance
 ): Promise<void> {
   const { action, installation } = payload;
-  
+
+  if (!installation?.account) {
+    throw new Error('Missing installation account');
+  }
+
   if (action === 'created') {
     await fastify.prisma.installation.create({
       data: {
@@ -170,7 +177,7 @@ async function handleInstallationEvent(
         status: 'active',
       },
     });
-    
+
     auditLogger.log('installation_created', {
       installationId: installation.id,
       account: installation.account.login,
@@ -184,11 +191,27 @@ async function handleInstallationEvent(
 }
 
 async function handleInstallationRepositoriesEvent(
-  payload: any,
+  payload: PullRequestWebhookPayload & {
+    installation?: { id: number };
+    repositories_added?: Array<{ id: number; full_name: string; private: boolean }>;
+    repositories_removed?: Array<{ id: number }>;
+  },
   fastify: FastifyInstance
 ): Promise<void> {
   const { action, installation, repositories_added, repositories_removed } = payload;
-  
+
+  if (!installation) {
+    throw new Error('Missing installation');
+  }
+
+  const dbInstallation = await fastify.prisma.installation.findUnique({
+    where: { githubId: installation.id },
+  });
+
+  if (!dbInstallation) {
+    throw new Error('Installation not found in database');
+  }
+
   if (action === 'added' && repositories_added) {
     for (const repo of repositories_added) {
       await fastify.prisma.repo.upsert({
@@ -197,7 +220,7 @@ async function handleInstallationRepositoriesEvent(
           fullName: repo.full_name,
         },
         create: {
-          installationId: installation.id,
+          installationId: dbInstallation.id,
           githubId: repo.id,
           fullName: repo.full_name,
           private: repo.private,
@@ -206,7 +229,7 @@ async function handleInstallationRepositoriesEvent(
       });
     }
   }
-  
+
   if (action === 'removed' && repositories_removed) {
     for (const repo of repositories_removed) {
       await fastify.prisma.repo.deleteMany({

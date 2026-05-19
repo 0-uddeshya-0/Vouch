@@ -7,10 +7,9 @@ import { checkRedisHealth } from '../middleware/idempotency';
 import type { HealthCheckResponse } from '@vouch/types';
 
 export async function healthRoutes(fastify: FastifyInstance): Promise<void> {
-  // Basic health check
   fastify.get('/health', async (): Promise<HealthCheckResponse> => {
     const redisHealthy = await checkRedisHealth();
-    
+
     let dbHealthy = false;
     try {
       await fastify.prisma.$queryRaw`SELECT 1`;
@@ -18,9 +17,9 @@ export async function healthRoutes(fastify: FastifyInstance): Promise<void> {
     } catch (error) {
       fastify.log.error(error, 'Database health check failed');
     }
-    
+
     const healthy = redisHealthy && dbHealthy;
-    
+
     return {
       status: healthy ? 'healthy' : 'unhealthy',
       timestamp: new Date().toISOString(),
@@ -31,14 +30,13 @@ export async function healthRoutes(fastify: FastifyInstance): Promise<void> {
       },
     };
   });
-  
-  // Readiness check
+
   fastify.get('/health/ready', async (
-    request: FastifyRequest,
+    _request: FastifyRequest,
     reply: FastifyReply
-  ): Promise<HealthCheckResponse | { status: string }> => {
+  ): Promise<HealthCheckResponse> => {
     const redisHealthy = await checkRedisHealth();
-    
+
     let dbHealthy = false;
     try {
       await fastify.prisma.$queryRaw`SELECT 1`;
@@ -46,7 +44,7 @@ export async function healthRoutes(fastify: FastifyInstance): Promise<void> {
     } catch (error) {
       fastify.log.error(error, 'Database readiness check failed');
     }
-    
+
     if (!redisHealthy || !dbHealthy) {
       reply.code(503);
       return {
@@ -59,7 +57,7 @@ export async function healthRoutes(fastify: FastifyInstance): Promise<void> {
         },
       };
     }
-    
+
     return {
       status: 'ready',
       timestamp: new Date().toISOString(),
@@ -70,12 +68,9 @@ export async function healthRoutes(fastify: FastifyInstance): Promise<void> {
       },
     };
   });
-  
-  // Liveness check
-  fastify.get('/health/live', async (): Promise<{ status: string; timestamp: string }> => {
-    return {
-      status: 'alive',
-      timestamp: new Date().toISOString(),
-    };
-  });
+
+  fastify.get('/health/live', async (): Promise<{ status: string; timestamp: string }> => ({
+    status: 'alive',
+    timestamp: new Date().toISOString(),
+  }));
 }

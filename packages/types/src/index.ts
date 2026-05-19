@@ -15,10 +15,10 @@ export interface FindingInput {
 }
 
 export interface HealthCheckResponse {
-  status: 'ok' | 'degraded' | 'error';
+  status: 'ok' | 'degraded' | 'error' | 'healthy' | 'unhealthy' | 'ready' | 'not ready';
   version: string;
   timestamp: string;
-  services?: Record<string, 'up' | 'down' | 'unknown'>;
+  services?: Record<string, 'up' | 'down' | 'unknown' | 'connected' | 'disconnected'>;
 }
 
 export interface PullRequestWebhookPayload {
@@ -35,6 +35,9 @@ export interface PullRequestWebhookPayload {
     default_branch: string;
     private: boolean;
   };
-  installation?: { id: number };
+  installation?: {
+    id: number;
+    account?: { login: string; type: string };
+  };
   [key: string]: unknown;
 }

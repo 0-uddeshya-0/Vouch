@@ -15,7 +15,12 @@ export async function checkIdempotency(
   request: FastifyRequest,
   reply: FastifyReply
 ): Promise<void> {
-  const deliveryId = request.deliveryId;
+  if (!request.url.startsWith('/webhooks/github')) {
+    return;
+  }
+
+  const deliveryId =
+    request.deliveryId ?? (request.headers['x-github-delivery'] as string | undefined);
   
   if (!deliveryId) {
     reply.code(400).send({
