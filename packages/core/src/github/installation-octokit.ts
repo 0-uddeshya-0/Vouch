@@ -1,6 +1,6 @@
 import { Octokit } from '@octokit/rest';
 import jwt from 'jsonwebtoken';
-import { env } from '@vouch/config';
+import { env } from '@vouch/config/env';
 
 let cachedJWT: { token: string; expiresAt: number } | null = null;
 const installationTokenCache = new Map<number, { token: string; expiresAt: number }>();

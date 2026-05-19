@@ -43,12 +43,19 @@ export function FindingsList({ findings: initialFindings }: FindingsListProps) {
     });
 
     startTransition(async () => {
-      const result = await dismissFinding(id);
-      if (!result.ok) {
+      try {
+        const result = await dismissFinding(id);
+        if (!result.ok) {
+          setFindings((prev) =>
+            prev.map((f) => (f.id === id ? { ...f, status: previousStatus } : f))
+          );
+          setError(result.error);
+        }
+      } catch (err) {
         setFindings((prev) =>
           prev.map((f) => (f.id === id ? { ...f, status: previousStatus } : f))
         );
-        setError(result.error);
+        setError(err instanceof Error ? err.message : 'Unauthorized');
       }
       setPendingId(null);
     });

@@ -5,7 +5,7 @@
 
 import crypto from 'crypto';
 import type { FastifyRequest, FastifyReply } from 'fastify';
-import { env } from '@vouch/config';
+import { env } from '@vouch/config/env';
 import { auditLogger } from '@vouch/core';
 
 const WEBHOOK_SECRET = env.GITHUB_WEBHOOK_SECRET;

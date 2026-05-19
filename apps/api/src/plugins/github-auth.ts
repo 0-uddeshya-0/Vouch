@@ -7,7 +7,7 @@ import fp from 'fastify-plugin';
 import jwt from 'jsonwebtoken';
 import { Octokit } from '@octokit/rest';
 import type { FastifyInstance, FastifyPluginAsync } from 'fastify';
-import { env } from '@vouch/config';
+import { env } from '@vouch/config/env';
 
 // GitHub App JWT cache
 let cachedJWT: { token: string; expiresAt: number } | null = null;

@@ -21,6 +21,16 @@ jobs:
         run: npm ci
 
       - name: Build
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/vouch
+          REDIS_URL: redis://localhost:6379
+          GITHUB_APP_ID: "1"
+          GITHUB_PRIVATE_KEY: "-----BEGIN RSA PRIVATE KEY-----\nci\n-----END RSA PRIVATE KEY-----"
+          GITHUB_WEBHOOK_SECRET: ci-webhook-secret
+          NEXTAUTH_URL: http://localhost:3002
+          NEXTAUTH_SECRET: ci-nextauth-secret-at-least-32-characters-long
+          GITHUB_ID: ci-oauth-id
+          GITHUB_SECRET: ci-oauth-secret
         run: npm run build
 
       - name: Test @vouch/core
