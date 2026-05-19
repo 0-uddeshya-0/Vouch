@@ -4,8 +4,20 @@
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import type { Analysis, UsageRecord } from '@prisma/client';
 import { apiRateLimiter } from '../middleware/rate-limit';
+
+interface AnalysisUsageSlice {
+  llmTier1Calls: number;
+  llmTier2Calls: number;
+  estimatedCost: number | { toString(): string };
+}
+
+interface DailyUsageSlice {
+  date: Date;
+  prsAnalyzed: number;
+  llmTokensUsed: number;
+  estimatedCost: number | { toString(): string };
+}
 
 export async function installationRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.addHook('preHandler', apiRateLimiter);
@@ -149,7 +161,7 @@ export async function installationRoutes(fastify: FastifyInstance): Promise<void
       llmTier2Calls: number;
       estimatedCost: number;
     }>(
-      (acc, curr: Pick<Analysis, 'llmTier1Calls' | 'llmTier2Calls' | 'estimatedCost'>) => ({
+      (acc, curr: AnalysisUsageSlice) => ({
         llmTier1Calls: acc.llmTier1Calls + curr.llmTier1Calls,
         llmTier2Calls: acc.llmTier2Calls + curr.llmTier2Calls,
         estimatedCost: acc.estimatedCost + Number(curr.estimatedCost),
@@ -163,14 +175,14 @@ export async function installationRoutes(fastify: FastifyInstance): Promise<void
         start: thirtyDaysAgo.toISOString(),
         end: new Date().toISOString(),
       },
-      daily: usage.map((u: UsageRecord) => ({
+      daily: usage.map((u: DailyUsageSlice) => ({
         date: u.date.toISOString(),
         prsAnalyzed: u.prsAnalyzed,
         llmTokensUsed: u.llmTokensUsed,
         estimatedCost: Number(u.estimatedCost),
       })),
       totals: {
-        prsAnalyzed: usage.reduce((sum: number, u: UsageRecord) => sum + u.prsAnalyzed, 0),
+        prsAnalyzed: usage.reduce((sum: number, u: DailyUsageSlice) => sum + u.prsAnalyzed, 0),
         llmTier1Calls: totals.llmTier1Calls,
         llmTier2Calls: totals.llmTier2Calls,
         estimatedCost: totals.estimatedCost,

@@ -4,6 +4,7 @@
   "private": true,
   "description": "Vouch - AI PR Analysis GitHub App for detecting hallucinated dependencies and security anti-patterns",
   "scripts": {
+    "postinstall": "prisma generate --schema=prisma/schema.prisma",
     "build": "turbo run build",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
@@ -15,14 +16,14 @@
     "clean": "turbo run clean && rm -rf node_modules"
   },
   "devDependencies": {
+    "@prisma/client": "^5.10.0",
+    "prisma": "^5.10.0",
     "turbo": "^1.13.0",
     "typescript": "^5.4.0"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
   },
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ]
+  "packageManager": "pnpm@9.15.4"
 }

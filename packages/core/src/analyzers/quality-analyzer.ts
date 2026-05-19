@@ -1,4 +1,10 @@
 import type { FindingInput } from '@vouch/types';
+import {
+  DEFAULT_REPO_CONFIG,
+  meetsSlopThreshold,
+  shouldIgnorePackage,
+  type RepoConfig,
+} from '../config/repo-config';
 import { extractAddedLinesFromPatch } from '../parsers/diff-lines';
 import { extractPackageName } from '../parsers/module-utils';
 import {
@@ -18,6 +24,7 @@ export interface QualityAnalyzerInput {
    * Pass an empty array if only analyzing package.json.
    */
   importedPackages: readonly string[];
+  repoConfig?: RepoConfig;
 }
 
 function normalizePkg(name: string): string {
@@ -68,8 +75,12 @@ function buildFinding(
   line: number,
   title: string,
   description: string,
-  severity: 'low' | 'medium'
-): FindingInput {
+  severity: 'low' | 'medium',
+  repoConfig: RepoConfig
+): FindingInput | null {
+  if (!meetsSlopThreshold(severity, repoConfig)) {
+    return null;
+  }
   return {
     type: 'anti-pattern',
     severity,
@@ -87,25 +98,31 @@ function checkNativeAlternatives(
   packages: Set<string>,
   filePath: string,
   patch: string,
-  findings: FindingInput[]
+  findings: FindingInput[],
+  repoConfig: RepoConfig
 ): void {
   for (const pkg of packages) {
+    if (shouldIgnorePackage(pkg, repoConfig)) {
+      continue;
+    }
     const key = pkg.toLowerCase();
     const info = NATIVE_PACKAGE_ALTERNATIVES[key];
     if (!info) {
       continue;
     }
     const line = lineForDependencyInPatch(patch, pkg);
-    findings.push(
-      buildFinding(
-        pkg,
-        filePath,
-        line,
-        `Native alternative available for ${pkg}`,
-        `${info.explanation} Prefer: ${info.alternative}.`,
-        'medium'
-      )
+    const finding = buildFinding(
+      pkg,
+      filePath,
+      line,
+      `Native alternative available for ${pkg}`,
+      `${info.explanation} Prefer: ${info.alternative}.`,
+      'medium',
+      repoConfig
     );
+    if (finding) {
+      findings.push(finding);
+    }
   }
 }
 
@@ -113,7 +130,8 @@ function checkRedundancy(
   packages: Set<string>,
   filePath: string,
   patch: string,
-  findings: FindingInput[]
+  findings: FindingInput[],
+  repoConfig: RepoConfig
 ): void {
   const alreadyFlagged = new Set<string>();
 
@@ -124,22 +142,27 @@ function checkRedundancy(
     }
     const others = present.join(', ');
     for (const pkg of present) {
+      if (shouldIgnorePackage(pkg, repoConfig)) {
+        continue;
+      }
       const norm = normalizePkg(pkg);
       if (alreadyFlagged.has(norm)) {
         continue;
       }
       alreadyFlagged.add(norm);
       const line = lineForDependencyInPatch(patch, pkg);
-      findings.push(
-        buildFinding(
-          pkg,
-          filePath,
-          line,
-          `Redundant dependency: ${pkg}`,
-          `${group.explanation} Detected overlapping package(s) in this change: ${others}.`,
-          'medium'
-        )
+      const finding = buildFinding(
+        pkg,
+        filePath,
+        line,
+        `Redundant dependency: ${pkg}`,
+        `${group.explanation} Detected overlapping package(s) in this change: ${others}.`,
+        'medium',
+        repoConfig
       );
+      if (finding) {
+        findings.push(finding);
+      }
     }
   }
 }
@@ -149,24 +172,30 @@ function checkUnusedDeclared(
   imported: Set<string>,
   filePath: string,
   patch: string,
-  findings: FindingInput[]
+  findings: FindingInput[],
+  repoConfig: RepoConfig
 ): void {
   for (const dep of declared) {
+    if (shouldIgnorePackage(dep, repoConfig)) {
+      continue;
+    }
     const norm = normalizePkg(dep);
     if (imported.has(norm)) {
       continue;
     }
     const line = lineForDependencyInPatch(patch, dep);
-    findings.push(
-      buildFinding(
-        dep,
-        filePath,
-        line,
-        `Unused dependency: ${dep}`,
-        `Package \`${dep}\` was added to package.json but no import of \`${dep}\` was found in the PR diff. Remove it or add a usage.`,
-        'low'
-      )
+    const finding = buildFinding(
+      dep,
+      filePath,
+      line,
+      `Unused dependency: ${dep}`,
+      `Package \`${dep}\` was added to package.json but no import of \`${dep}\` was found in the PR diff. Remove it or add a usage.`,
+      'low',
+      repoConfig
     );
+    if (finding) {
+      findings.push(finding);
+    }
   }
 }
 
@@ -174,6 +203,7 @@ function checkUnusedDeclared(
  * Deterministic "slop detector" for dependency quality (redundancy, native replacements, unused deps).
  */
 export function analyzeDependencyQuality(input: QualityAnalyzerInput): FindingInput[] {
+  const repoConfig = input.repoConfig ?? DEFAULT_REPO_CONFIG;
   const filePath = input.filePath ?? 'package.json';
   const patch = input.packageJsonPatch;
   const declared = parseAddedDependenciesFromPatch(patch);
@@ -181,17 +211,21 @@ export function analyzeDependencyQuality(input: QualityAnalyzerInput): FindingIn
 
   const union = new Set<string>();
   for (const d of declared) {
-    union.add(normalizePkg(d));
+    if (!shouldIgnorePackage(d, repoConfig)) {
+      union.add(normalizePkg(d));
+    }
   }
   for (const i of imported) {
-    union.add(i);
+    if (!shouldIgnorePackage(i, repoConfig)) {
+      union.add(i);
+    }
   }
 
   const findings: FindingInput[] = [];
 
-  checkNativeAlternatives(union, filePath, patch, findings);
-  checkRedundancy(union, filePath, patch, findings);
-  checkUnusedDeclared(declared, imported, filePath, patch, findings);
+  checkNativeAlternatives(union, filePath, patch, findings, repoConfig);
+  checkRedundancy(union, filePath, patch, findings, repoConfig);
+  checkUnusedDeclared(declared, imported, filePath, patch, findings, repoConfig);
 
   return findings;
 }
@@ -202,7 +236,8 @@ export function analyzeDependencyQuality(input: QualityAnalyzerInput): FindingIn
 export function analyzeDeclaredDependencies(
   dependencies: readonly string[],
   importedPackages: readonly string[] = [],
-  filePath = 'package.json'
+  filePath = 'package.json',
+  repoConfig: RepoConfig = DEFAULT_REPO_CONFIG
 ): FindingInput[] {
   const body = JSON.stringify(
     {
@@ -216,5 +251,6 @@ export function analyzeDeclaredDependencies(
     packageJsonPatch: patch,
     filePath,
     importedPackages,
+    repoConfig,
   });
 }

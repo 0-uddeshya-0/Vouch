@@ -7,11 +7,13 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
       "default": "./dist/index.js"
     },
     "./env": {
-      "types": "./dist/env.d.ts",
-      "default": "./dist/env.js"
+      "types": "./env.d.ts",
+      "require": "./env.js",
+      "default": "./env.js"
     }
   },
   "scripts": {

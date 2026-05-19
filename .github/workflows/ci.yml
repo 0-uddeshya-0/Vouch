@@ -12,13 +12,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: npm
+          cache: 'pnpm'
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Build
         env:
@@ -31,7 +35,7 @@ jobs:
           NEXTAUTH_SECRET: ci-nextauth-secret-at-least-32-characters-long
           GITHUB_ID: ci-oauth-id
           GITHUB_SECRET: ci-oauth-secret
-        run: npm run build
+        run: pnpm run build
 
       - name: Test @vouch/core
-        run: npm run test --workspace=@vouch/core
+        run: pnpm --filter @vouch/core test

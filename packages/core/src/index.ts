@@ -34,3 +34,14 @@ export type {
 } from './parsers/registry-client';
 export { getInstallationOctokit } from './github/installation-octokit';
 export { auditLogger } from './audit/logger';
+export {
+  CONFIG_FILENAMES,
+  DEFAULT_REPO_CONFIG,
+  clearRepoConfigCache,
+  fetchRepoConfig,
+  meetsSlopThreshold,
+  repoConfigFileSchema,
+  resolveRepoConfig,
+  shouldIgnorePackage,
+} from './config/repo-config';
+export type { RepoConfig, RepoConfigFile } from './config/repo-config';
