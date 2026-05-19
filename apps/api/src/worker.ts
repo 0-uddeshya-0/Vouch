@@ -23,6 +23,8 @@ import {
   isPythonStandardLibrary,
   getInstallationOctokit,
   auditLogger,
+  analyzeDependencyQuality,
+  analyzeDeclaredDependencies,
 } from '@vouch/core';
 import { getPrisma } from './plugins';
 import type { FindingInput } from '@vouch/types';
@@ -38,6 +40,12 @@ interface AnalysisJob {
   defaultBranch: string;
 }
 
+interface PrFileInput {
+  filename: string;
+  patch: string;
+  status: string;
+}
+
 const redis = new Redis(env.REDIS_URL);
 const registryCache = new RedisRegistryCacheAdapter(redis);
 const registryClient = new RegistryClient({ cache: registryCache });
@@ -45,6 +53,132 @@ const npmAnalyzer = createNpmAnalyzer(registryClient);
 const pypiAnalyzer = createPypiAnalyzer(registryClient);
 
 const llmRouter = new LLMRouter();
+
+function isPackageJsonPath(filename: string): boolean {
+  return filename === 'package.json' || filename.endsWith('/package.json');
+}
+
+function isRequirementsTxtPath(filename: string): boolean {
+  return filename === 'requirements.txt' || filename.endsWith('/requirements.txt');
+}
+
+function isPyprojectTomlPath(filename: string): boolean {
+  return filename === 'pyproject.toml' || filename.endsWith('/pyproject.toml');
+}
+
+/**
+ * Collect top-level package/module names imported across all PR source files.
+ */
+function collectImportedPackages(files: PrFileInput[]): string[] {
+  const packages = new Set<string>();
+
+  for (const file of files) {
+    if (file.status === 'removed' || !file.patch) {
+      continue;
+    }
+
+    if (
+      file.filename.endsWith('.ts') ||
+      file.filename.endsWith('.tsx') ||
+      file.filename.endsWith('.js') ||
+      file.filename.endsWith('.jsx')
+    ) {
+      const imports = extractTypeScriptImports(file.patch, file.filename);
+      for (const imp of imports) {
+        const packageName = extractPackageName(imp.source);
+        if (packageName && !isNodeBuiltin(packageName)) {
+          packages.add(packageName);
+        }
+      }
+    } else if (file.filename.endsWith('.py')) {
+      const imports = extractPythonImports(file.patch);
+      for (const imp of imports) {
+        const moduleName = extractTopLevelModule(imp.module);
+        if (moduleName && !isPythonStandardLibrary(moduleName)) {
+          packages.add(moduleName);
+        }
+      }
+    }
+  }
+
+  return [...packages];
+}
+
+function parseAddedRequirementsDeps(patch: string): string[] {
+  const names: string[] = [];
+  for (const row of patch.split(/\r?\n/)) {
+    if (!row.startsWith('+') || row.startsWith('+++')) {
+      continue;
+    }
+    const t = row.slice(1).trim();
+    if (!t || t.startsWith('#')) {
+      continue;
+    }
+    const base = t.split(/[ \t[<>=!]/)[0];
+    if (base) {
+      names.push(base);
+    }
+  }
+  return names;
+}
+
+function parseAddedPyprojectDeps(patch: string): string[] {
+  const names: string[] = [];
+  for (const row of patch.split(/\r?\n/)) {
+    if (!row.startsWith('+') || row.startsWith('+++')) {
+      continue;
+    }
+    const line = row.slice(1);
+    const m = line.match(/^\s*([a-zA-Z0-9_-]+)\s*=/);
+    if (m) {
+      names.push(m[1]);
+    }
+  }
+  return names;
+}
+
+/**
+ * Run dependency quality (slop) analysis on manifest files using PR-wide import context.
+ */
+function analyzeDependencyQualityForPr(
+  files: PrFileInput[],
+  importedPackages: readonly string[]
+): FindingInput[] {
+  const findings: FindingInput[] = [];
+
+  const packageJsonFile = files.find((f) => isPackageJsonPath(f.filename) && f.patch);
+  if (packageJsonFile) {
+    findings.push(
+      ...analyzeDependencyQuality({
+        packageJsonPatch: packageJsonFile.patch,
+        filePath: packageJsonFile.filename,
+        importedPackages,
+      })
+    );
+  }
+
+  const requirementsFile = files.find((f) => isRequirementsTxtPath(f.filename) && f.patch);
+  if (requirementsFile) {
+    const deps = parseAddedRequirementsDeps(requirementsFile.patch);
+    if (deps.length > 0) {
+      findings.push(
+        ...analyzeDeclaredDependencies(deps, importedPackages, requirementsFile.filename)
+      );
+    }
+  }
+
+  const pyprojectFile = files.find((f) => isPyprojectTomlPath(f.filename) && f.patch);
+  if (pyprojectFile) {
+    const deps = parseAddedPyprojectDeps(pyprojectFile.patch);
+    if (deps.length > 0) {
+      findings.push(
+        ...analyzeDeclaredDependencies(deps, importedPackages, pyprojectFile.filename)
+      );
+    }
+  }
+
+  return findings;
+}
 
 const worker = new Worker<AnalysisJob>('pr-analysis', async (job) => {
   const {
@@ -87,14 +221,24 @@ const worker = new Worker<AnalysisJob>('pr-analysis', async (job) => {
       pull_number: prNumber,
     });
 
+    const prFiles: PrFileInput[] = files
+      .filter((f) => f.patch && f.status !== 'removed')
+      .map((f) => ({
+        filename: f.filename,
+        patch: f.patch as string,
+        status: f.status,
+      }));
+
     const allFindings: FindingInput[] = [];
 
-    for (const file of files) {
-      if (!file.patch || file.status === 'removed') continue;
-
+    for (const file of prFiles) {
       const findings = await analyzeFile(file.filename, file.patch, file.status);
       allFindings.push(...findings);
     }
+
+    const importedPackages = collectImportedPackages(prFiles);
+    const qualityFindings = analyzeDependencyQualityForPr(prFiles, importedPackages);
+    allFindings.push(...qualityFindings);
 
     for (const finding of allFindings) {
       await prisma.finding.create({
@@ -162,6 +306,8 @@ const worker = new Worker<AnalysisJob>('pr-analysis', async (job) => {
       analysisId,
       installationId,
       findingsCount: allFindings.length,
+      qualityFindingsCount: qualityFindings.length,
+      importedPackagesCount: importedPackages.length,
       llmTier1Calls,
       llmTier2Calls,
       estimatedCost,
@@ -225,13 +371,13 @@ async function analyzeFile(
   const entropyFindings = entropyScanner.scan(patch, filename);
   findings.push(...entropyFindings);
 
-  if (filename === 'package.json') {
+  if (isPackageJsonPath(filename)) {
     const result = await npmAnalyzer.analyzePackageJson(patch, filename);
     findings.push(...result.findings);
-  } else if (filename === 'requirements.txt') {
+  } else if (isRequirementsTxtPath(filename)) {
     const result = await pypiAnalyzer.analyzeRequirementsTxt(patch, filename);
     findings.push(...result.findings);
-  } else if (filename === 'pyproject.toml') {
+  } else if (isPyprojectTomlPath(filename)) {
     const result = await pypiAnalyzer.analyzePyprojectToml(patch, filename);
     findings.push(...result.findings);
   } else if (filename.endsWith('.ts') || filename.endsWith('.tsx') ||
