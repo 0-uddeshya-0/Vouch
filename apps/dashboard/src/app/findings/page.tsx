@@ -1,10 +1,14 @@
 import Link from 'next/link';
-import type { Prisma } from '@prisma/client';
 import { getServerSession } from 'next-auth';
 import { Suspense } from 'react';
 import { authOptions } from '@/auth';
 import { prisma } from '@/lib/prisma';
-import { findingListInclude, toFindingRowDto } from '@/lib/findings-types';
+import {
+  findingListInclude,
+  toFindingRowDto,
+  type FindingWhereClause,
+  type FindingWithContext,
+} from '@/lib/findings-types';
 import { FindingsFilter } from './findings-filter';
 import { FindingsList } from './findings-list';
 
@@ -22,8 +26,8 @@ export interface FindingsPageProps {
   };
 }
 
-function buildWhereClause(searchParams: FindingsPageProps['searchParams']): Prisma.FindingWhereInput {
-  const where: Prisma.FindingWhereInput = {};
+function buildWhereClause(searchParams: FindingsPageProps['searchParams']): FindingWhereClause {
+  const where: FindingWhereClause = {};
   const status = searchParams.status ?? 'open';
 
   if (status === 'dismissed') {
@@ -39,7 +43,7 @@ function buildWhereClause(searchParams: FindingsPageProps['searchParams']): Pris
 
   if (searchParams.repo) {
     where.analysis = {
-      ...(where.analysis as Prisma.AnalysisWhereInput | undefined),
+      ...where.analysis,
       repo: {
         fullName: searchParams.repo,
       },
@@ -49,7 +53,7 @@ function buildWhereClause(searchParams: FindingsPageProps['searchParams']): Pris
   const prNumber = searchParams.pr ? Number.parseInt(searchParams.pr, 10) : NaN;
   if (!Number.isNaN(prNumber)) {
     where.analysis = {
-      ...(where.analysis as Prisma.AnalysisWhereInput | undefined),
+      ...where.analysis,
       prNumber,
     };
   }
@@ -71,7 +75,7 @@ export default async function FindingsPage({ searchParams }: FindingsPageProps) 
       include: findingListInclude,
       orderBy: { createdAt: 'desc' },
       take: 200,
-    }),
+    }) as Promise<FindingWithContext[]>,
     prisma.repo.findMany({
       select: { fullName: true },
       orderBy: { fullName: 'asc' },
@@ -79,7 +83,7 @@ export default async function FindingsPage({ searchParams }: FindingsPageProps) 
   ]);
 
   const findings = rows.map(toFindingRowDto);
-  const repoNames = repos.map((r) => r.fullName);
+  const repoNames = repos.map((r: { fullName: string }) => r.fullName);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
