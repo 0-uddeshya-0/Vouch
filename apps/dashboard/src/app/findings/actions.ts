@@ -5,7 +5,7 @@ import { getServerSession } from 'next-auth';
 import type { Session } from 'next-auth';
 import { z } from 'zod';
 import { authOptions } from '@/auth';
-import { prisma } from '@/lib/prisma';
+import { getPrisma } from '@/lib/prisma';
 
 const dismissFindingSchema = z.object({
   findingId: z.string().uuid('Invalid finding ID'),
@@ -31,7 +31,7 @@ export async function dismissFinding(findingId: string): Promise<DismissFindingR
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid finding ID' };
   }
 
-  const existing = await prisma.finding.findUnique({
+  const existing = await getPrisma().finding.findUnique({
     where: { id: parsed.data.findingId },
     select: { id: true, status: true },
   });
@@ -41,7 +41,7 @@ export async function dismissFinding(findingId: string): Promise<DismissFindingR
   }
 
   if (existing.status !== 'dismissed') {
-    await prisma.finding.update({
+    await getPrisma().finding.update({
       where: { id: parsed.data.findingId },
       data: {
         status: 'dismissed',

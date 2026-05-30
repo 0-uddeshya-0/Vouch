@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { getServerSession } from 'next-auth';
 import { Suspense } from 'react';
 import { authOptions } from '@/auth';
-import { prisma } from '@/lib/prisma';
+import { getPrisma } from '@/lib/prisma';
 import {
   findingListInclude,
   toFindingRowDto,
@@ -70,13 +70,13 @@ export default async function FindingsPage({ searchParams }: FindingsPageProps) 
   const where = buildWhereClause(searchParams);
 
   const [rows, repos] = await Promise.all([
-    prisma.finding.findMany({
+    getPrisma().finding.findMany({
       where,
       include: findingListInclude,
       orderBy: { createdAt: 'desc' },
       take: 200,
     }) as Promise<FindingWithContext[]>,
-    prisma.repo.findMany({
+    getPrisma().repo.findMany({
       select: { fullName: true },
       orderBy: { fullName: 'asc' },
     }),
