@@ -299,14 +299,18 @@ const worker = new Worker<AnalysisJob>('pr-analysis', async (job) => {
       llmTier1Calls,
       llmTier2Calls,
       estimatedCost,
+      prNumber,
+      dashboardBaseUrl: env.VOUCH_DASHBOARD_URL,
     });
 
-    await octokit.issues.createComment({
-      owner,
-      repo,
-      issue_number: prNumber,
-      body: comment,
-    });
+    if (comment) {
+      await octokit.issues.createComment({
+        owner,
+        repo,
+        issue_number: prNumber,
+        body: comment,
+      });
+    }
 
     auditLogger.log('analysis_completed', {
       analysisId,

@@ -1,28 +1,14 @@
 import type { Octokit } from '@octokit/rest';
+import {
+  buildCheckRunPresentation,
+  type CommentMeta,
+  type FormattedFinding,
+} from './comment-formatter';
 
 interface RepoRef {
   owner: string;
   repo: string;
   sha: string;
-}
-
-interface FindingRow {
-  type: string;
-  severity: string;
-  title: string;
-  filePath: string;
-  lineStart: number;
-  lineEnd: number;
-  description: string;
-}
-
-interface CheckMeta {
-  analysisId: string;
-  model: string;
-  confidence: number;
-  llmTier1Calls: number;
-  llmTier2Calls: number;
-  estimatedCost: number;
 }
 
 export class CheckRunManager {
@@ -42,23 +28,21 @@ export class CheckRunManager {
   async updateCheckRun(
     checkRunId: number,
     repo: RepoRef,
-    findings: FindingRow[],
-    meta: CheckMeta
+    findings: FormattedFinding[],
+    meta: CommentMeta
   ): Promise<void> {
-    const summary = `Vouch found ${findings.length} issue(s). Model ${meta.model}.`;
-    const text = findings
-      .map((f) => `- ${f.severity} ${f.title} (${f.filePath}:${f.lineStart})`)
-      .join('\n');
+    const presentation = buildCheckRunPresentation(findings, meta);
+
     await this.octokit.rest.checks.update({
       owner: repo.owner,
       repo: repo.repo,
       check_run_id: checkRunId,
       status: 'completed',
-      conclusion: findings.length > 0 ? 'neutral' : 'success',
+      conclusion: presentation.conclusion,
       output: {
-        title: 'Vouch scan',
-        summary,
-        text: text || 'No issues.',
+        title: presentation.title,
+        summary: presentation.summary,
+        text: presentation.text,
       },
     });
   }
