@@ -21,6 +21,10 @@ const apiEnvSchema = z.object({
     .string({ required_error: 'GITHUB_WEBHOOK_SECRET is required to verify GitHub webhooks' })
     .min(1, 'GITHUB_WEBHOOK_SECRET is required to verify GitHub webhooks'),
   LLM_CONFIDENCE_THRESHOLD: z.coerce.number().min(0).max(1).default(0.7),
+  VOUCH_DASHBOARD_URL: z
+    .string()
+    .url()
+    .default('http://localhost:3002'),
 });
 
 export type Env = z.infer<typeof apiEnvSchema>;

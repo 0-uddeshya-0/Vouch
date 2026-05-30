@@ -14,6 +14,13 @@ export type { NativeAlternativeInfo, OverlapGroup } from './analyzers/quality-ma
 export { scanForSecrets } from './security/secrets';
 export { entropyScanner } from './security/entropy';
 export { formatPRComment } from './format/comment';
+export {
+  buildCheckRunPresentation,
+  classifyFinding,
+  formatPRComment as formatGitHubPRComment,
+  hasBlockingFindings,
+} from './github/comment-formatter';
+export type { CommentMeta, FormattedFinding } from './github/comment-formatter';
 export { CheckRunManager } from './github/check-run';
 export {
   extractTypeScriptImports,
