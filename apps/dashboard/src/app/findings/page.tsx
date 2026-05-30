@@ -17,6 +17,8 @@ export interface FindingsPageProps {
     status?: string;
     severity?: string;
     repo?: string;
+    pr?: string;
+    finding?: string;
   };
 }
 
@@ -37,10 +39,23 @@ function buildWhereClause(searchParams: FindingsPageProps['searchParams']): Pris
 
   if (searchParams.repo) {
     where.analysis = {
+      ...(where.analysis as Prisma.AnalysisWhereInput | undefined),
       repo: {
         fullName: searchParams.repo,
       },
     };
+  }
+
+  const prNumber = searchParams.pr ? Number.parseInt(searchParams.pr, 10) : NaN;
+  if (!Number.isNaN(prNumber)) {
+    where.analysis = {
+      ...(where.analysis as Prisma.AnalysisWhereInput | undefined),
+      prNumber,
+    };
+  }
+
+  if (searchParams.finding) {
+    where.id = searchParams.finding;
   }
 
   return where;
@@ -79,7 +94,12 @@ export default async function FindingsPage({ searchParams }: FindingsPageProps) 
             <span className="font-mono text-slate-300">
               {session?.user?.login ?? session?.user?.name ?? 'user'}
             </span>
-            . Filter and dismiss false positives to keep signal high.
+            .
+            {searchParams.pr ? (
+              <> Showing findings for PR <span className="font-mono text-slate-300">#{searchParams.pr}</span>.</>
+            ) : (
+              <> Filter and dismiss false positives to keep signal high.</>
+            )}
           </p>
         </div>
         <Link
