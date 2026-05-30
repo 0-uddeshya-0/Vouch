@@ -25,6 +25,12 @@ const apiEnvSchema = z.object({
     .string()
     .url()
     .default('http://localhost:3002'),
+  VOUCH_MODE: z.enum(['zero-cost', 'full']).default('zero-cost'),
+  ANTHROPIC_API_KEY: z.string().optional(),
+  OLLAMA_BASE_URL: z.string().url().default('http://localhost:11434'),
+  OLLAMA_MODEL: z.string().default('codellama:7b-code'),
+  ANTHROPIC_HAIKU_MODEL: z.string().default('claude-3-5-haiku-20241022'),
+  ANTHROPIC_SONNET_MODEL: z.string().default('claude-3-5-sonnet-20241022'),
 });
 
 export type Env = z.infer<typeof apiEnvSchema>;

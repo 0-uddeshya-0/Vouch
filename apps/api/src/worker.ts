@@ -26,6 +26,8 @@ import {
   analyzeDeclaredDependencies,
   createNpmAnalyzer,
   fetchRepoConfig,
+  collectManifestPackages,
+  checkVulnerabilities,
   type RepoConfig,
 } from '@vouch/core';
 import { getPrisma } from './plugins';
@@ -53,7 +55,17 @@ const registryCache = new RedisRegistryCacheAdapter(redis);
 const registryClient = new RegistryClient({ cache: registryCache });
 const pypiAnalyzer = createPypiAnalyzer(registryClient);
 
-const llmRouter = new LLMRouter();
+function createLlmRouter(): LLMRouter {
+  return new LLMRouter({
+    mode: env.VOUCH_MODE,
+    anthropicApiKey: env.ANTHROPIC_API_KEY,
+    ollamaBaseUrl: env.OLLAMA_BASE_URL,
+    ollamaModel: env.OLLAMA_MODEL,
+    haikuModel: env.ANTHROPIC_HAIKU_MODEL,
+    sonnetModel: env.ANTHROPIC_SONNET_MODEL,
+    escalationThreshold: 0.75,
+  });
+}
 
 function isPackageJsonPath(filename: string): boolean {
   return filename === 'package.json' || filename.endsWith('/package.json');
@@ -245,6 +257,28 @@ const worker = new Worker<AnalysisJob>('pr-analysis', async (job) => {
     const importedPackages = collectImportedPackages(prFiles);
     const qualityFindings = analyzeDependencyQualityForPr(prFiles, importedPackages, repoConfig);
     allFindings.push(...qualityFindings);
+
+    try {
+      const manifestPackages = collectManifestPackages(prFiles);
+      const osvFindings = await checkVulnerabilities(manifestPackages);
+      allFindings.push(...osvFindings);
+    } catch (osvError) {
+      console.error('[Worker] OSV scan failed, continuing:', osvError);
+    }
+
+    try {
+      const llmRouter = createLlmRouter();
+      const llmResult = await llmRouter.analyzeDiff({
+        files: prFiles.map((f) => ({ filename: f.filename, patch: f.patch })),
+        deterministicFindings: allFindings,
+      });
+      allFindings.push(...llmResult.findings);
+      llmTier1Calls += llmResult.tier1Calls;
+      llmTier2Calls += llmResult.tier2Calls;
+      estimatedCost += llmResult.estimatedCost;
+    } catch (llmError) {
+      console.error('[Worker] LLM analysis failed, continuing with deterministic findings:', llmError);
+    }
 
     for (const finding of allFindings) {
       await prisma.finding.create({
