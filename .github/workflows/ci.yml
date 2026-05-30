@@ -34,6 +34,7 @@ jobs:
           GITHUB_ID: ci-oauth-id
           GITHUB_SECRET: ci-oauth-secret
           VOUCH_DASHBOARD_URL: http://localhost:3002
+          VOUCH_MODE: zero-cost
         run: pnpm run build
 
       - name: Test @vouch/core

@@ -1,4 +1,12 @@
-export { LLMRouter } from './llm/router';
+export { LLMRouter } from './llm/llm-router';
+export type { LLMRouterConfig, LLMAnalysisResult, VouchMode } from './llm/types';
+export {
+  checkVulnerabilities,
+  collectManifestPackages,
+  extractNpmPackagesFromPatch,
+  normalizeVersion,
+} from './analyzers/osv-scanner';
+export type { PackageRef } from './analyzers/osv-scanner';
 export { createNpmAnalyzer, npmAnalyzer } from './analyzers/npm';
 export type { NpmAnalyzer } from './analyzers/npm';
 export { createPypiAnalyzer, pypiAnalyzer } from './analyzers/pypi';

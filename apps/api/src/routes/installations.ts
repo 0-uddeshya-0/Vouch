@@ -6,6 +6,33 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { apiRateLimiter } from '../middleware/rate-limit';
 
+interface InstallationRow {
+  id: number;
+  githubId: number;
+  accountLogin: string;
+  accountType: string;
+  plan: string;
+  status: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface InstallationWithRepoCount extends InstallationRow {
+  _count: { repos: number };
+}
+
+interface RepoRow {
+  id: number;
+  githubId: number;
+  fullName: string;
+  private: boolean;
+  defaultBranch: string;
+}
+
+interface InstallationWithRepos extends InstallationRow {
+  repos: RepoRow[];
+}
+
 interface AnalysisUsageSlice {
   llmTier1Calls: number;
   llmTier2Calls: number;
@@ -23,13 +50,13 @@ export async function installationRoutes(fastify: FastifyInstance): Promise<void
   fastify.addHook('preHandler', apiRateLimiter);
 
   fastify.get('/installations', async (_request: FastifyRequest, _reply: FastifyReply) => {
-    const installations = await fastify.prisma.installation.findMany({
+    const installations = (await fastify.prisma.installation.findMany({
       include: {
         _count: {
           select: { repos: true },
         },
       },
-    });
+    })) as InstallationWithRepoCount[];
 
     return installations.map((inst) => ({
       id: inst.id,
@@ -55,12 +82,12 @@ export async function installationRoutes(fastify: FastifyInstance): Promise<void
       return { error: 'Invalid installation ID' };
     }
 
-    const installation = await fastify.prisma.installation.findUnique({
+    const installation = (await fastify.prisma.installation.findUnique({
       where: { id },
       include: {
         repos: true,
       },
-    });
+    })) as InstallationWithRepos | null;
 
     if (!installation) {
       reply.code(404);
@@ -107,10 +134,10 @@ export async function installationRoutes(fastify: FastifyInstance): Promise<void
       return { error: 'Invalid plan. Must be free, pro, or enterprise' };
     }
 
-    const installation = await fastify.prisma.installation.update({
+    const installation = (await fastify.prisma.installation.update({
       where: { id },
       data: { plan },
-    });
+    })) as InstallationRow;
 
     return {
       id: installation.id,
@@ -142,7 +169,7 @@ export async function installationRoutes(fastify: FastifyInstance): Promise<void
           date: { gte: thirtyDaysAgo },
         },
         orderBy: { date: 'desc' },
-      }),
+      }) as Promise<DailyUsageSlice[]>,
       fastify.prisma.analysis.findMany({
         where: {
           repo: { installationId: id },
@@ -153,15 +180,11 @@ export async function installationRoutes(fastify: FastifyInstance): Promise<void
           llmTier2Calls: true,
           estimatedCost: true,
         },
-      }),
+      }) as Promise<AnalysisUsageSlice[]>,
     ]);
 
-    const totals = analyses.reduce<{
-      llmTier1Calls: number;
-      llmTier2Calls: number;
-      estimatedCost: number;
-    }>(
-      (acc, curr: AnalysisUsageSlice) => ({
+    const totals = analyses.reduce(
+      (acc: { llmTier1Calls: number; llmTier2Calls: number; estimatedCost: number }, curr) => ({
         llmTier1Calls: acc.llmTier1Calls + curr.llmTier1Calls,
         llmTier2Calls: acc.llmTier2Calls + curr.llmTier2Calls,
         estimatedCost: acc.estimatedCost + Number(curr.estimatedCost),
@@ -175,14 +198,14 @@ export async function installationRoutes(fastify: FastifyInstance): Promise<void
         start: thirtyDaysAgo.toISOString(),
         end: new Date().toISOString(),
       },
-      daily: usage.map((u: DailyUsageSlice) => ({
+      daily: usage.map((u) => ({
         date: u.date.toISOString(),
         prsAnalyzed: u.prsAnalyzed,
         llmTokensUsed: u.llmTokensUsed,
         estimatedCost: Number(u.estimatedCost),
       })),
       totals: {
-        prsAnalyzed: usage.reduce((sum: number, u: DailyUsageSlice) => sum + u.prsAnalyzed, 0),
+        prsAnalyzed: usage.reduce((sum, u) => sum + u.prsAnalyzed, 0),
         llmTier1Calls: totals.llmTier1Calls,
         llmTier2Calls: totals.llmTier2Calls,
         estimatedCost: totals.estimatedCost,
