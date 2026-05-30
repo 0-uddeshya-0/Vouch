@@ -110,4 +110,38 @@ describe('comment-formatter', () => {
     expect(presentation.conclusion).toBe('action_required');
     expect(presentation.title).toContain('hallucinated');
   });
+
+  it('prioritizes security findings when truncating to 10 rows', () => {
+    const findings: FormattedFinding[] = [
+      ...Array.from({ length: 3 }, (_, index) =>
+        makeFinding({
+          type: 'hallucination',
+          severity: 'critical',
+          title: `Critical ${index}`,
+          codeSnippet: `@fake/${index}`,
+        })
+      ),
+      ...Array.from({ length: 9 }, (_, index) =>
+        makeFinding({
+          type: 'anti-pattern',
+          severity: 'low',
+          title: `Slop ${index}`,
+          codeSnippet: `slop-${index}`,
+        })
+      ),
+    ];
+
+    const markdown = formatPRComment(findings, {
+      ...baseMeta,
+      llmTier1Calls: 0,
+      llmTier2Calls: 0,
+    }) as string;
+
+    expect(markdown).toContain('@fake/0');
+    expect(markdown).toContain('@fake/1');
+    expect(markdown).toContain('@fake/2');
+    expect(markdown).toContain('slop-6');
+    expect(markdown).not.toContain('slop-8');
+    expect(markdown).toContain('no LLM inference on this run');
+  });
 });

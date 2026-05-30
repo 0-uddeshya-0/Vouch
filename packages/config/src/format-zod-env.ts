@@ -36,4 +36,5 @@ export function formatZodEnvErrors(error: ZodError, context = 'Environment'): st
 export function exitOnEnvValidationFailure(error: ZodError, context = 'Environment'): never {
   console.error(formatZodEnvErrors(error, context));
   process.exit(1);
+  throw new Error('Environment validation failed');
 }

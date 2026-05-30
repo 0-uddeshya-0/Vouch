@@ -13,8 +13,6 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       - uses: actions/setup-node@v4
         with:
@@ -35,6 +33,7 @@ jobs:
           NEXTAUTH_SECRET: ci-nextauth-secret-at-least-32-characters-long
           GITHUB_ID: ci-oauth-id
           GITHUB_SECRET: ci-oauth-secret
+          VOUCH_DASHBOARD_URL: http://localhost:3002
         run: pnpm run build
 
       - name: Test @vouch/core
