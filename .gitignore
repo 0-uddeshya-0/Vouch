@@ -7,3 +7,7 @@ dist/
 .env
 .env.*.local
 .DS_Store
+
+# GitHub App Manifest flow — generated secrets, never commit
+scripts/github-app/.env.github-app
+scripts/github-app/*.pem

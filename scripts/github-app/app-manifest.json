@@ -1,0 +1,22 @@
+{
+  "name": "Vouch",
+  "url": "https://github.com/0-uddeshya-0/Vouch",
+  "hook_attributes": {
+    "url": "https://REPLACE_WITH_YOUR_API_URL/webhooks/github",
+    "active": true
+  },
+  "redirect_url": "http://localhost:8765/callback",
+  "public": false,
+  "default_permissions": {
+    "pull_requests": "write",
+    "issues": "write",
+    "checks": "write",
+    "contents": "read",
+    "metadata": "read"
+  },
+  "default_events": [
+    "pull_request",
+    "installation",
+    "installation_repositories"
+  ]
+}
