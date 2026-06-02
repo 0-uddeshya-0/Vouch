@@ -12,13 +12,14 @@ COPY apps/dashboard/package.json ./apps/dashboard/
 COPY packages/config/package.json ./packages/config/
 COPY packages/core/package.json ./packages/core/
 COPY packages/types/package.json ./packages/types/
+# Copy the schema before install: the root `postinstall` runs `prisma generate`,
+# which needs prisma/schema.prisma to exist during `pnpm install`.
+COPY prisma ./prisma
 
 RUN pnpm install --frozen-lockfile
 
-COPY prisma ./prisma
 COPY apps/api ./apps/api
 COPY packages ./packages
-COPY packages/types ./packages/types
 
 RUN pnpm exec prisma generate --schema=prisma/schema.prisma
 RUN pnpm run build --filter=@vouch/types --filter=@vouch/config --filter=@vouch/core --filter=@vouch/api
