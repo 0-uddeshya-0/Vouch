@@ -1,0 +1,27 @@
+# Railway config-as-code for the Vouch API service.
+# https://docs.railway.com/reference/config-as-code
+#
+# Railway provisions Postgres and Redis as separate services (Dashboard ->
+# "+ New" -> Database -> PostgreSQL / Redis), not from this file. After adding
+# them, set this service's Variables to reference them:
+#
+#   DATABASE_URL = ${{Postgres.DATABASE_URL}}
+#   REDIS_URL    = ${{Redis.REDIS_URL}}
+#   GITHUB_APP_ID, GITHUB_PRIVATE_KEY, GITHUB_WEBHOOK_SECRET, VOUCH_MODE,
+#   VOUCH_DASHBOARD_URL, NODE_ENV=production
+#
+# WORKER: create a SECOND service from this same repo. Point its config path at
+# railway.worker.toml (below) OR set its custom start command in the dashboard to:
+#   node node_modules/prisma/build/index.js migrate deploy --schema=prisma/schema.prisma && node apps/api/dist/worker.js
+
+[build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+# Runs migrations, then boots the Fastify server from the built dist/ output.
+startCommand = "node node_modules/prisma/build/index.js migrate deploy --schema=prisma/schema.prisma && node apps/api/dist/server.js"
+healthcheckPath = "/health"
+healthcheckTimeout = 100
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3

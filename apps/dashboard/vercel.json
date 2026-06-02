@@ -1,0 +1,7 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "installCommand": "cd ../.. && corepack enable && corepack prepare pnpm@9.15.4 --activate && pnpm install --frozen-lockfile",
+  "buildCommand": "cd ../.. && pnpm exec prisma generate --schema=prisma/schema.prisma && pnpm --filter @vouch/dashboard build",
+  "outputDirectory": ".next"
+}

@@ -15,9 +15,9 @@
 
 <p align="center">
   <a href="#getting-started">Quick Start</a> ·
+  <a href="docs/DEPLOYMENT.md">Production Deploy</a> ·
   <a href="#how-it-works">Architecture</a> ·
   <a href="#configuration">Configuration</a> ·
-  <a href="#development">Development</a> ·
   <a href="CONTRIBUTING.md">Contributing</a>
 </p>
 
