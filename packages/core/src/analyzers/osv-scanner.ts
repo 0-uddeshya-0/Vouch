@@ -1,5 +1,5 @@
 import type { FindingInput } from '@vouch/types';
-import { extractAddedLinesFromPatch } from '../parsers/diff-lines';
+import { extractAddedNpmDependencies } from '../parsers/manifest-fragments';
 
 export interface PackageRef {
   name: string;
@@ -40,40 +40,14 @@ export function normalizeVersion(range: string): string | null {
 
 export function extractNpmPackagesFromPatch(patch: string, filePath = 'package.json'): PackageRef[] {
   const packages: PackageRef[] = [];
-  const { syntheticSource } = extractAddedLinesFromPatch(patch);
-  if (!syntheticSource.trim()) {
-    return packages;
-  }
 
-  try {
-    const data = JSON.parse(syntheticSource) as {
-      dependencies?: Record<string, string>;
-      devDependencies?: Record<string, string>;
-      peerDependencies?: Record<string, string>;
-      optionalDependencies?: Record<string, string>;
-    };
-
-    const sections = [
-      data.dependencies,
-      data.devDependencies,
-      data.peerDependencies,
-      data.optionalDependencies,
-    ];
-
-    for (const section of sections) {
-      if (!section) {
-        continue;
-      }
-      for (const [name, versionRange] of Object.entries(section)) {
-        const version = normalizeVersion(versionRange);
-        if (!version) {
-          continue;
-        }
-        packages.push({ name, version, ecosystem: 'npm' });
-      }
+  // Works for whole-file additions and fragment edits to an existing manifest.
+  for (const { name, versionRange } of extractAddedNpmDependencies(patch)) {
+    const version = normalizeVersion(versionRange);
+    if (!version) {
+      continue;
     }
-  } catch {
-    return packages;
+    packages.push({ name, version, ecosystem: 'npm' });
   }
 
   return packages;
@@ -125,22 +99,40 @@ function cveId(vuln: NonNullable<OsvBatchResponse['results'][0]['vulns']>[0]): s
   return alias ?? vuln.id;
 }
 
-function toOsvFinding(
+const SEVERITY_RANK: Record<string, number> = { low: 0, medium: 1, high: 2, critical: 3 };
+const MAX_LISTED_ADVISORIES = 5;
+
+/**
+ * One finding per vulnerable package (axios@1.6.0 has 26 OSV entries — listing
+ * each as its own finding would drown the PR comment).
+ */
+function toAggregatedOsvFinding(
   pkg: PackageRef & { filePath?: string },
-  vuln: NonNullable<OsvBatchResponse['results'][0]['vulns']>[0]
+  vulns: NonNullable<OsvBatchResponse['results'][0]['vulns']>
 ): FindingInput {
-  const id = cveId(vuln);
-  const advisoryUrl = `https://osv.dev/vulnerability/${encodeURIComponent(vuln.id)}`;
+  let severity: 'low' | 'medium' | 'high' | 'critical' = 'low';
+  for (const vuln of vulns) {
+    const mapped = mapOsvSeverity(vuln);
+    if (SEVERITY_RANK[mapped] > SEVERITY_RANK[severity]) {
+      severity = mapped;
+    }
+  }
+
+  const listed = vulns
+    .slice(0, MAX_LISTED_ADVISORIES)
+    .map((vuln) => cveId(vuln))
+    .join(', ');
+  const more = vulns.length > MAX_LISTED_ADVISORIES ? ` and ${vulns.length - MAX_LISTED_ADVISORIES} more` : '';
 
   return {
     type: 'security',
-    severity: mapOsvSeverity(vuln),
+    severity,
     confidence: 1.0,
     filePath: pkg.filePath ?? 'package.json',
     lineStart: 1,
     lineEnd: 1,
-    title: `Known vulnerability: ${id} in ${pkg.name}@${pkg.version}`,
-    description: `${vuln.summary ?? vuln.details ?? 'Known CVE reported in OSV.'} Advisory: ${advisoryUrl}`,
+    title: `${vulns.length} known ${vulns.length === 1 ? 'vulnerability' : 'vulnerabilities'} in ${pkg.name}@${pkg.version}`,
+    description: `OSV reports ${vulns.length} known ${vulns.length === 1 ? 'advisory' : 'advisories'} affecting ${pkg.name}@${pkg.version}: ${listed}${more}. Upgrade to a patched version — details at https://osv.dev.`,
     codeSnippet: `${pkg.name}@${pkg.version}`,
   };
 }
@@ -182,8 +174,8 @@ export async function checkVulnerabilities(
       const pkg = batch[index] as PackageRef & { filePath?: string };
       const vulns = data.results[index]?.vulns ?? [];
 
-      for (const vuln of vulns) {
-        findings.push(toOsvFinding(pkg, vuln));
+      if (vulns.length > 0) {
+        findings.push(toAggregatedOsvFinding(pkg, vulns));
       }
     }
   }

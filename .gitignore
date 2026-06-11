@@ -7,3 +7,13 @@ dist/
 .env
 .env.*.local
 .DS_Store
+
+# GitHub App Manifest flow — generated secrets, never commit
+scripts/github-app/.env.github-app
+scripts/github-app/*.pem
+
+# Generated demo output
+scripts/demo/pr-comment-preview.md
+
+# Local Claude Code / editor config
+.claude/

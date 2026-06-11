@@ -168,8 +168,16 @@ async function handleInstallationEvent(
   }
 
   if (action === 'created') {
-    await fastify.prisma.installation.create({
-      data: {
+    // Upsert: GitHub re-delivers events and users uninstall/reinstall, so a
+    // bare create would crash on the unique githubId constraint.
+    await fastify.prisma.installation.upsert({
+      where: { githubId: installation.id },
+      update: {
+        accountLogin: installation.account.login,
+        accountType: installation.account.type,
+        status: 'active',
+      },
+      create: {
         githubId: installation.id,
         accountLogin: installation.account.login,
         accountType: installation.account.type,
@@ -183,7 +191,7 @@ async function handleInstallationEvent(
       account: installation.account.login,
     });
   } else if (action === 'deleted') {
-    await fastify.prisma.installation.update({
+    await fastify.prisma.installation.updateMany({
       where: { githubId: installation.id },
       data: { status: 'inactive' },
     });
@@ -232,9 +240,18 @@ async function handleInstallationRepositoriesEvent(
 
   if (action === 'removed' && repositories_removed) {
     for (const repo of repositories_removed) {
-      await fastify.prisma.repo.deleteMany({
-        where: { githubId: repo.id },
-      });
+      // Delete children first: Finding -> Analysis -> Repo (no DB-level cascades).
+      await fastify.prisma.$transaction([
+        fastify.prisma.finding.deleteMany({
+          where: { analysis: { repo: { githubId: repo.id } } },
+        }),
+        fastify.prisma.analysis.deleteMany({
+          where: { repo: { githubId: repo.id } },
+        }),
+        fastify.prisma.repo.deleteMany({
+          where: { githubId: repo.id },
+        }),
+      ]);
     }
   }
 }

@@ -5,6 +5,7 @@ import { getServerSession } from 'next-auth';
 import type { Session } from 'next-auth';
 import { z } from 'zod';
 import { authOptions } from '@/auth';
+import { isDemoMode } from '@/lib/demo-mode';
 import { getPrisma } from '@/lib/prisma';
 
 const dismissFindingSchema = z.object({
@@ -15,14 +16,14 @@ export type DismissFindingResult =
   | { ok: true }
   | { ok: false; error: string };
 
-function resolveDismissedByUser(session: Session): string {
-  const user = session.user;
-  return user?.login ?? user?.name ?? user?.email ?? 'unknown';
+function resolveDismissedByUser(session: Session | null): string {
+  const user = session?.user;
+  return user?.login ?? user?.name ?? user?.email ?? (isDemoMode() ? 'demo' : 'unknown');
 }
 
 export async function dismissFinding(findingId: string): Promise<DismissFindingResult> {
   const session = await getServerSession(authOptions);
-  if (!session?.user) {
+  if (!session?.user && !isDemoMode()) {
     throw new Error('Unauthorized');
   }
 

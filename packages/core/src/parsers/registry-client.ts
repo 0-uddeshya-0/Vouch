@@ -38,6 +38,12 @@ class InMemoryRegistryCache implements RegistryCacheAdapter {
 export interface NpmPackageInfo {
   name: string;
   exists: boolean;
+  /**
+   * True when the registry gave a definitive answer (200 or 404). False when the
+   * lookup failed (network error, 5xx) — in that case `exists: false` means
+   * "unknown", and callers must NOT report the package as hallucinated.
+   */
+  verified: boolean;
   created?: string;
   description?: string;
   latestVersion?: string;
@@ -47,6 +53,8 @@ export interface NpmPackageInfo {
 export interface PypiPackageInfo {
   name: string;
   exists: boolean;
+  /** Same semantics as NpmPackageInfo.verified */
+  verified: boolean;
   /** ISO upload time for a release if present */
   created?: string;
   summary?: string;
@@ -115,6 +123,14 @@ function normalizePypiName(name: string): string {
   return name.trim().toLowerCase().replace(/_/g, '-');
 }
 
+/** Cached marker for definitive 404s so missing packages are not re-fetched every call. */
+const NOT_FOUND_SENTINEL = '__vouch_not_found__';
+
+type RegistryLookup =
+  | { status: 'ok'; data: unknown }
+  | { status: 'not_found' }
+  | { status: 'error' };
+
 export class RegistryClient {
   private readonly cacheTtlMs: number;
 
@@ -137,13 +153,16 @@ export class RegistryClient {
     this.cache = options.cache ?? new InMemoryRegistryCache();
   }
 
-  private async cachedJson(url: string, cacheKey: string): Promise<unknown | null> {
+  private async cachedJson(url: string, cacheKey: string): Promise<RegistryLookup> {
     const hit = await this.cache.get(cacheKey);
     if (hit) {
+      if (hit === NOT_FOUND_SENTINEL) {
+        return { status: 'not_found' };
+      }
       try {
-        return JSON.parse(hit) as unknown;
+        return { status: 'ok', data: JSON.parse(hit) as unknown };
       } catch {
-        return null;
+        return { status: 'error' };
       }
     }
 
@@ -159,24 +178,25 @@ export class RegistryClient {
         url,
         message: err instanceof Error ? err.message : String(err),
       });
-      return null;
+      return { status: 'error' };
     }
 
     if (res.status === 404) {
-      return null;
+      await this.cache.set(cacheKey, NOT_FOUND_SENTINEL, this.cacheTtlMs);
+      return { status: 'not_found' };
     }
 
     if (!res.ok) {
       registryClientLogger.warn('http_error', { url, status: res.status });
-      return null;
+      return { status: 'error' };
     }
 
     const text = await res.text();
     await this.cache.set(cacheKey, text, this.cacheTtlMs);
     try {
-      return JSON.parse(text) as unknown;
+      return { status: 'ok', data: JSON.parse(text) as unknown };
     } catch {
-      return null;
+      return { status: 'error' };
     }
   }
 
@@ -184,7 +204,16 @@ export class RegistryClient {
     const encoded = encodeURIComponent(packageName);
     const url = `${this.npmRegistryBase}/${encoded}`;
     const cacheKey = `npm:${packageName}`;
-    const data = (await this.cachedJson(url, cacheKey)) as
+    const lookup = await this.cachedJson(url, cacheKey);
+
+    if (lookup.status === 'not_found') {
+      return { name: packageName, exists: false, verified: true };
+    }
+    if (lookup.status === 'error') {
+      return { name: packageName, exists: false, verified: false };
+    }
+
+    const data = lookup.data as
       | {
           name?: string;
           time?: { created?: string; [v: string]: string | undefined };
@@ -195,7 +224,7 @@ export class RegistryClient {
       | null;
 
     if (!data || typeof data !== 'object') {
-      return { name: packageName, exists: false };
+      return { name: packageName, exists: false, verified: false };
     }
 
     const created = data.time?.created;
@@ -204,6 +233,7 @@ export class RegistryClient {
     return {
       name: data.name ?? packageName,
       exists: true,
+      verified: true,
       created,
       description: data.description,
       latestVersion: latest,
@@ -215,7 +245,16 @@ export class RegistryClient {
     const norm = normalizePypiName(packageName);
     const url = `${this.pypiBase}/pypi/${encodeURIComponent(norm)}/json`;
     const cacheKey = `pypi:${norm}`;
-    const data = (await this.cachedJson(url, cacheKey)) as
+    const lookup = await this.cachedJson(url, cacheKey);
+
+    if (lookup.status === 'not_found') {
+      return { name: packageName, exists: false, verified: true };
+    }
+    if (lookup.status === 'error') {
+      return { name: packageName, exists: false, verified: false };
+    }
+
+    const data = lookup.data as
       | {
           info?: { name?: string; summary?: string; version?: string };
           urls?: { upload_time?: string }[];
@@ -223,7 +262,7 @@ export class RegistryClient {
       | null;
 
     if (!data || !data.info) {
-      return { name: packageName, exists: false };
+      return { name: packageName, exists: false, verified: false };
     }
 
     const info = data.info;
@@ -232,6 +271,7 @@ export class RegistryClient {
     return {
       name: info.name ?? packageName,
       exists: true,
+      verified: true,
       summary: info.summary,
       latestVersion: info.version,
       created: upload,

@@ -19,6 +19,18 @@ class MockLLMClient implements LLMClient {
 }
 
 describe('LLMRouter', () => {
+  it('runs no LLM calls and returns empty findings in deterministic mode', async () => {
+    const router = new LLMRouter({ mode: 'deterministic' });
+    const result = await router.analyzeDiff({
+      files: [{ filename: 'src/db.ts', patch: '+const q = `SELECT * FROM u WHERE id = ${id}`;' }],
+      deterministicFindings: [],
+    });
+    expect(result.findings).toEqual([]);
+    expect(result.tier1Calls).toBe(0);
+    expect(result.tier2Calls).toBe(0);
+    expect(result.estimatedCost).toBe(0);
+  });
+
   it('merges tier-1 findings and tracks zero cost in zero-cost mode', async () => {
     const tier1Response: LLMClientResponse = {
       findings: [

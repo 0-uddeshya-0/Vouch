@@ -28,6 +28,7 @@ import {
   fetchRepoConfig,
   collectManifestPackages,
   checkVulnerabilities,
+  VOUCH_COMMENT_MARKER,
   type RepoConfig,
 } from '@vouch/core';
 import { getPrisma } from './plugins';
@@ -50,7 +51,8 @@ interface PrFileInput {
   status: string;
 }
 
-const redis = new Redis(env.REDIS_URL);
+// BullMQ requires maxRetriesPerRequest: null on worker connections.
+const redis = new Redis(env.REDIS_URL, { maxRetriesPerRequest: null });
 const registryCache = new RedisRegistryCacheAdapter(redis);
 const registryClient = new RegistryClient({ cache: registryCache });
 const pypiAnalyzer = createPypiAnalyzer(registryClient);
@@ -65,6 +67,17 @@ function createLlmRouter(): LLMRouter {
     sonnetModel: env.ANTHROPIC_SONNET_MODEL,
     escalationThreshold: 0.75,
   });
+}
+
+/** Human-readable analysis label for the check run / PR comment. */
+function resolveModelLabel(mode: string, tier1: number, tier2: number): string {
+  if (tier1 + tier2 === 0) {
+    return 'deterministic analysis';
+  }
+  if (mode === 'zero-cost') {
+    return `Ollama (${env.OLLAMA_MODEL})`;
+  }
+  return tier2 > 0 ? env.ANTHROPIC_SONNET_MODEL : env.ANTHROPIC_HAIKU_MODEL;
 }
 
 function isPackageJsonPath(filename: string): boolean {
@@ -280,9 +293,12 @@ const worker = new Worker<AnalysisJob>('pr-analysis', async (job) => {
       console.error('[Worker] LLM analysis failed, continuing with deterministic findings:', llmError);
     }
 
-    for (const finding of allFindings) {
-      await prisma.finding.create({
-        data: {
+    // Replace any findings left over from a previous attempt of this job so
+    // BullMQ retries stay idempotent.
+    await prisma.$transaction([
+      prisma.finding.deleteMany({ where: { analysisId } }),
+      prisma.finding.createMany({
+        data: allFindings.map((finding) => ({
           analysisId,
           type: finding.type,
           severity: finding.severity,
@@ -293,9 +309,9 @@ const worker = new Worker<AnalysisJob>('pr-analysis', async (job) => {
           title: finding.title,
           description: finding.description,
           codeSnippet: finding.codeSnippet,
-        },
-      });
-    }
+        })),
+      }),
+    ]);
 
     await prisma.analysis.update({
       where: { id: analysisId },
@@ -312,13 +328,15 @@ const worker = new Worker<AnalysisJob>('pr-analysis', async (job) => {
       where: { analysisId },
     });
 
+    const modelLabel = resolveModelLabel(env.VOUCH_MODE, llmTier1Calls, llmTier2Calls);
+
     await checkRunManager.updateCheckRun(
       checkRunId,
       { owner, repo, sha: commitSha },
       dbFindings,
       {
         analysisId,
-        model: llmTier2Calls > 0 ? 'claude-3-5-sonnet' : 'claude-3-5-haiku',
+        model: modelLabel,
         confidence: env.LLM_CONFIDENCE_THRESHOLD,
         llmTier1Calls,
         llmTier2Calls,
@@ -328,7 +346,7 @@ const worker = new Worker<AnalysisJob>('pr-analysis', async (job) => {
 
     const comment = formatPRComment(dbFindings, {
       analysisId,
-      model: llmTier2Calls > 0 ? 'claude-3-5-sonnet' : 'claude-3-5-haiku',
+      model: modelLabel,
       confidence: env.LLM_CONFIDENCE_THRESHOLD,
       llmTier1Calls,
       llmTier2Calls,
@@ -338,12 +356,7 @@ const worker = new Worker<AnalysisJob>('pr-analysis', async (job) => {
     });
 
     if (comment) {
-      await octokit.issues.createComment({
-        owner,
-        repo,
-        issue_number: prNumber,
-        body: comment,
-      });
+      await upsertVouchComment(octokit, owner, repo, prNumber, comment);
     }
 
     auditLogger.log('analysis_completed', {
@@ -402,6 +415,43 @@ const worker = new Worker<AnalysisJob>('pr-analysis', async (job) => {
   concurrency: 5,
 });
 
+/**
+ * Update Vouch's existing PR comment when one exists (found via hidden marker),
+ * otherwise create one. Keeps `synchronize` pushes from stacking duplicate comments.
+ */
+async function upsertVouchComment(
+  octokit: Awaited<ReturnType<typeof getInstallationOctokit>>,
+  owner: string,
+  repo: string,
+  prNumber: number,
+  body: string
+): Promise<void> {
+  const { data: comments } = await octokit.issues.listComments({
+    owner,
+    repo,
+    issue_number: prNumber,
+    per_page: 100,
+  });
+
+  const existing = comments.find((c) => c.body?.includes(VOUCH_COMMENT_MARKER));
+
+  if (existing) {
+    await octokit.issues.updateComment({
+      owner,
+      repo,
+      comment_id: existing.id,
+      body,
+    });
+  } else {
+    await octokit.issues.createComment({
+      owner,
+      repo,
+      issue_number: prNumber,
+      body,
+    });
+  }
+}
+
 async function analyzeFile(
   filename: string,
   patch: string,
@@ -430,7 +480,7 @@ async function analyzeFile(
     const imports = extractTypeScriptImports(patch, filename);
     for (const imp of imports) {
       const packageName = extractPackageName(imp.source);
-      if (!isNodeBuiltin(packageName)) {
+      if (packageName && !isNodeBuiltin(packageName)) {
         const finding = await npmAnalyzer.analyzeImportStatement(
           packageName,
           filename,
@@ -446,7 +496,7 @@ async function analyzeFile(
     const imports = extractPythonImports(patch);
     for (const imp of imports) {
       const moduleName = extractTopLevelModule(imp.module);
-      if (!isPythonStandardLibrary(moduleName)) {
+      if (moduleName && !isPythonStandardLibrary(moduleName)) {
         const finding = await pypiAnalyzer.analyzeImportStatement(
           moduleName,
           filename,

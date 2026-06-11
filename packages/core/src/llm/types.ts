@@ -1,6 +1,12 @@
 import type { FindingInput } from '@vouch/types';
 
-export type VouchMode = 'zero-cost' | 'full';
+/**
+ * - `deterministic`: no LLM at all — registry/secret/CVE/slop checks only. Free,
+ *   needs no API key or Ollama. The default for zero-cost hosting.
+ * - `zero-cost`: routes LLM escalation to a local Ollama instance.
+ * - `full`: Anthropic Haiku → Sonnet escalation (requires ANTHROPIC_API_KEY).
+ */
+export type VouchMode = 'deterministic' | 'zero-cost' | 'full';
 
 export interface LLMRouterConfig {
   mode: VouchMode;

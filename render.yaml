@@ -1,0 +1,50 @@
+# Render Blueprint — free single-service deploy for the Vouch backend.
+# https://render.com/docs/blueprint-spec
+#
+# This runs the Fastify webhook server AND the analysis worker in ONE free
+# web service (all-in-one mode), so the whole backend costs nothing.
+#
+# Postgres and Redis are NOT created here (Render's free Postgres expires after
+# 30 days). Use always-free managed databases instead and paste their URLs into
+# the env vars below when prompted:
+#   - DATABASE_URL  → Neon    (https://neon.tech, free tier)
+#   - REDIS_URL     → Upstash (https://upstash.com, free tier, use the rediss:// URL)
+#
+# Deploy: push this repo to GitHub, then on Render click
+#   "New +" → "Blueprint" → pick this repo. Render reads render.yaml and
+# prompts for the values marked `sync: false` below.
+
+services:
+  - type: web
+    name: vouch-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    # Migrate, then boot server + worker in one process.
+    dockerCommand: sh -c "node node_modules/prisma/build/index.js migrate deploy --schema=prisma/schema.prisma && node apps/api/dist/all-in-one.js"
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3000"
+      # Pure deterministic analysis — no LLM, no API key, no Ollama. Free.
+      - key: VOUCH_MODE
+        value: deterministic
+      # --- Managed databases (paste when prompted) ---
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      # --- GitHub App credentials (from scripts/github-app/create-github-app.mjs) ---
+      - key: GITHUB_APP_ID
+        sync: false
+      - key: GITHUB_PRIVATE_KEY
+        sync: false
+      - key: GITHUB_WEBHOOK_SECRET
+        sync: false
+      # --- Where PR-comment "View details" links point (your Vercel dashboard) ---
+      - key: VOUCH_DASHBOARD_URL
+        sync: false
