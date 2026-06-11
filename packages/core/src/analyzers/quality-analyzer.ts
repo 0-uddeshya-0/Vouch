@@ -5,7 +5,10 @@ import {
   shouldIgnorePackage,
   type RepoConfig,
 } from '../config/repo-config';
-import { extractAddedNpmDependencies } from '../parsers/manifest-fragments';
+import {
+  extractAddedNpmDependencies,
+  isRegistryInstallableRange,
+} from '../parsers/manifest-fragments';
 import { extractPackageName } from '../parsers/module-utils';
 import {
   DEPENDENCY_OVERLAP_GROUPS,
@@ -33,7 +36,10 @@ function normalizePkg(name: string): string {
 
 function parseAddedDependenciesFromPatch(patch: string): string[] {
   // Tolerates JSON fragments from edits to an existing package.json.
-  return extractAddedNpmDependencies(patch).map((dep) => dep.name);
+  // workspace:/file:/git deps are internal wiring, not slop candidates.
+  return extractAddedNpmDependencies(patch)
+    .filter((dep) => isRegistryInstallableRange(dep.versionRange))
+    .map((dep) => dep.name);
 }
 
 function lineForDependencyInPatch(patch: string, dep: string): number {
