@@ -91,9 +91,9 @@ Vouch is designed to cost **nothing** to run: the backend ships an **all-in-one 
 | Piece | Free host | Notes |
 |-------|-----------|-------|
 | Backend (API + worker) | **Render** free web service | One service via [`render.yaml`](render.yaml) |
+| Redis | **Render** free Key Value | declared in the blueprint, wired automatically |
 | Dashboard | **Vercel** Hobby | [`apps/dashboard/vercel.json`](apps/dashboard/vercel.json) |
 | Postgres | **Neon** free | paste `DATABASE_URL` |
-| Redis | **Upstash** free | paste the `rediss://` `REDIS_URL` |
 
 **Steps:**
 
@@ -102,7 +102,7 @@ Vouch is designed to cost **nothing** to run: the backend ships an **all-in-one 
    node scripts/github-app/create-github-app.mjs https://<your-render-app>.onrender.com/webhooks/github
    ```
    This writes your App ID, private key, and webhook secret to a ready-to-paste `.env` block, and prints your public install link.
-2. **Backend → Render:** New ＋ → *Blueprint* → pick this repo. Render reads `render.yaml` and prompts for the env values from step 1 plus your Neon/Upstash URLs.
+2. **Backend → Render:** New ＋ → *Blueprint* → pick this repo. Render reads `render.yaml`, creates the Key Value store automatically, and prompts for the env values from step 1 plus your Neon `DATABASE_URL`.
 3. **Dashboard → Vercel:** import the repo, root `apps/dashboard`, add `DATABASE_URL`, `NEXTAUTH_*`, `GITHUB_ID/SECRET`, and `DASHBOARD_ALLOWED_LOGINS`.
 4. **Install** the app on your repos and share the public link. Done.
 

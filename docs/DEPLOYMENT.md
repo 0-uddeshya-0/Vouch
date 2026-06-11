@@ -2,7 +2,7 @@
 
 Two paths. Both put a real Vouch instance on live pull requests.
 
-- **Free forever** — Render (backend, all-in-one) + Neon (Postgres) + Upstash (Redis) + Vercel (dashboard). No credit card needed for the databases; `deterministic` mode means no LLM cost. **Start here.**
+- **Free forever** — Render (backend + Redis-compatible Key Value, all-in-one) + Neon (Postgres) + Vercel (dashboard). No credit card needed; `deterministic` mode means no LLM cost. **Start here.**
 - **Railway** — paid after the trial credit, but a slightly simpler single-provider backend. Covered at the bottom.
 
 Throughout, replace `your-api.onrender.com` and `your-dashboard.vercel.app` with your real URLs.
@@ -11,11 +11,11 @@ Throughout, replace `your-api.onrender.com` and `your-dashboard.vercel.app` with
 
 ## The free path
 
-### 1. Databases (2 minutes, no card)
+### 1. Database (2 minutes, no card)
 
 **Postgres → [Neon](https://neon.tech):** create a project, copy the connection string (it includes `?sslmode=require`). That's your `DATABASE_URL`.
 
-**Redis → [Upstash](https://upstash.com):** create a database, copy the **TLS** URL (starts with `rediss://`). That's your `REDIS_URL`. BullMQ works with Upstash over TLS with no extra config.
+Redis is handled for you: the Render blueprint declares a free Key Value (Valkey, Redis-compatible) instance and wires `REDIS_URL` into the backend automatically. *(Prefer [Upstash](https://upstash.com)? Its free `rediss://` TLS URL works too — just override `REDIS_URL` on the service.)*
 
 Push the schema from your laptop:
 
@@ -51,7 +51,7 @@ It also prints your **public install link** (`https://github.com/apps/<slug>`) �
 1. Push this repo to your GitHub account.
 2. On [Render](https://render.com): **New ＋ → Blueprint → pick the repo**. Render reads `render.yaml`.
 3. When prompted, paste the `sync: false` values:
-   - `DATABASE_URL` (Neon), `REDIS_URL` (Upstash)
+   - `DATABASE_URL` (Neon) — `REDIS_URL` is wired automatically from the blueprint's Key Value instance
    - `GITHUB_APP_ID`, `GITHUB_PRIVATE_KEY`, `GITHUB_WEBHOOK_SECRET` (from step 2)
    - `VOUCH_DASHBOARD_URL` (your Vercel URL — set after step 4, then redeploy)
 4. Deploy. The blueprint runs `prisma migrate deploy` then `node apps/api/dist/all-in-one.js`.
