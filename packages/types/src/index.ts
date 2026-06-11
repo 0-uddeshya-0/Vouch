@@ -34,7 +34,13 @@ export interface PullRequestWebhookPayload {
     full_name: string;
     default_branch: string;
     private: boolean;
+    owner?: { login: string; type: string };
   };
+  /**
+   * On most app webhook events GitHub sends only `{ id, node_id }` here.
+   * The full object (with `account`) is only present on `installation` and
+   * `installation_repositories` events.
+   */
   installation?: {
     id: number;
     account?: { login: string; type: string };
