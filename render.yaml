@@ -1,20 +1,25 @@
 # Render Blueprint — free single-service deploy for the Vouch backend.
 # https://render.com/docs/blueprint-spec
 #
-# This runs the Fastify webhook server AND the analysis worker in ONE free
-# web service (all-in-one mode), so the whole backend costs nothing.
+# This runs the Fastify webhook server AND the analysis worker in ONE free web
+# service (all-in-one mode), plus a free Key Value (Valkey/Redis-compatible)
+# instance that is wired in automatically. Total cost: $0.
 #
-# Postgres and Redis are NOT created here (Render's free Postgres expires after
-# 30 days). Use always-free managed databases instead and paste their URLs into
-# the env vars below when prompted:
-#   - DATABASE_URL  → Neon    (https://neon.tech, free tier)
-#   - REDIS_URL     → Upstash (https://upstash.com, free tier, use the rediss:// URL)
+# Postgres is NOT created here (Render's free Postgres expires after 30 days).
+# Use Neon (https://neon.tech, always-free) and paste its connection string
+# into DATABASE_URL when Render prompts for it.
 #
-# Deploy: push this repo to GitHub, then on Render click
-#   "New +" → "Blueprint" → pick this repo. Render reads render.yaml and
-# prompts for the values marked `sync: false` below.
+# Deploy: on Render click "New +" → "Blueprint" → pick this repo. Render reads
+# render.yaml and prompts for the values marked `sync: false` below.
 
 services:
+  - type: keyvalue
+    name: vouch-redis
+    plan: free
+    # BullMQ requires noeviction so queued jobs are never silently dropped.
+    maxmemoryPolicy: noeviction
+    ipAllowList: [] # internal connections only
+
   - type: web
     name: vouch-api
     runtime: docker
@@ -33,10 +38,14 @@ services:
       # Pure deterministic analysis — no LLM, no API key, no Ollama. Free.
       - key: VOUCH_MODE
         value: deterministic
-      # --- Managed databases (paste when prompted) ---
-      - key: DATABASE_URL
-        sync: false
+      # Auto-wired to the Key Value instance above.
       - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: vouch-redis
+          property: connectionString
+      # --- Neon Postgres connection string (paste when prompted) ---
+      - key: DATABASE_URL
         sync: false
       # --- GitHub App credentials (from scripts/github-app/create-github-app.mjs) ---
       - key: GITHUB_APP_ID
