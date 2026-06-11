@@ -1,160 +1,146 @@
 <div align="center">
 
-<h1>Vouch</h1>
+<img src="docs/assets/banner.svg" alt="Vouch — the AI code reviewer that doesn't trust AI" width="880" />
 
-<strong>The AI code reviewer that doesn&rsquo;t trust AI.</strong>
-
-Catches hallucinated packages, leaked secrets, known CVEs, and dependency bloat on every pull request —
-with deterministic registry lookups and AST parsing, not another model&rsquo;s guess.
-
-<br />
+<br /><br />
 
 [![CI](https://img.shields.io/github/actions/workflow/status/0-uddeshya-0/Vouch/ci.yml?branch=main&label=CI&style=flat-square)](https://github.com/0-uddeshya-0/Vouch/actions)
+[![Install the App](https://img.shields.io/badge/GitHub%20App-install%20vouch--review-34d399?style=flat-square&logo=github)](https://github.com/apps/vouch-review)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.4-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-74%20passing-success?style=flat-square)](packages/core/src/__tests__)
-[![Cost](https://img.shields.io/badge/runs%20on-free%20tier-22c55e?style=flat-square)](render.yaml)
+[![Tests](https://img.shields.io/badge/tests-90%20passing-success?style=flat-square)](packages/core/src/__tests__)
+[![Runs free](https://img.shields.io/badge/infra%20cost-%240%2Fmonth-22c55e?style=flat-square)](docs/DEPLOYMENT.md)
 
-[Try it](#-try-it-in-3-ways) ·
-[Deploy free](#-deploy-your-own-free) ·
-[How it works](#-how-it-works) ·
-[Configuration](#%EF%B8%8F-configuration) ·
-[Contributing](CONTRIBUTING.md)
+**[Install on your repo](https://github.com/apps/vouch-review)** ·
+**[See a live analysis](https://github.com/0-uddeshya-0/Vouch/pull/3)** ·
+[90-second local demo](#-try-it-in-90-seconds) ·
+[Deploy your own (free)](#-deploy-your-own-free) ·
+[Architecture](docs/ARCHITECTURE.md)
 
 </div>
 
 ---
 
-## Why Vouch?
+## The problem
 
-AI assistants now write a large share of the code in every PR — and the surveys are blunt about the cost: **96% of developers don't fully trust AI-generated code, and reviewing it takes *more* effort than reviewing a human's.** The failure mode isn't obvious typos; it's code that *looks* right and quietly isn't:
+AI assistants now write a large share of the code in every pull request, and
+**19.7% of packages recommended by LLMs don't exist** ([USENIX Security 2025](https://www.usenix.org/conference/usenixsecurity25)).
+Attackers register those hallucinated names on npm and PyPI — *slopsquatting* —
+and wait for someone to `npm install` the suggestion. Add hardcoded keys, CVE-pinned
+versions, and three HTTP clients doing one job, and "looks right, isn't" becomes
+the dominant failure mode of AI-era code review.
 
-```diff
-- import retry from 'axios-retry-pro';    // 👻 package does not exist on npm (slopsquatting bait)
-+ import retry from 'axios-retry';
+Vouch sits on your pull requests like a skeptical senior engineer. **The checks
+that matter are deterministic** — a package either exists on the registry or it
+doesn't; a version either has a CVE or it doesn't. Every finding ships with
+evidence you can verify in one click, not a confidence-shaped opinion. LLM
+analysis is optional, runs last, and can never block a merge.
 
-- const key = 'AKIA2E4XQJ7VHZ93KQLM';     // 🔑 hardcoded AWS credential, now in git history forever
-+ const key = process.env.AWS_ACCESS_KEY_ID;
-```
-
-Vouch sits on your pull requests like a skeptical senior engineer. **The checks that matter are deterministic** — a package either exists on the registry or it doesn't; a version either has a CVE or it doesn't. LLM analysis is *optional* and never blocks a merge. Every finding ships with evidence you can verify yourself, not a confidence-shaped opinion.
-
-| | Catches | How |
+| | Catches | Evidence |
 |---|---|---|
-| 👻 | **Hallucinated / slopsquatted packages** | Live npm & PyPI registry lookups — a definitive 404, never a guess |
-| 🔑 | **Committed secrets** | 12 credential formats (AWS, GitHub, Stripe, Slack, private keys…) + entropy heuristics |
-| 🛡️ | **Known CVEs** | Batch-queries the [OSV](https://osv.dev) database for every added dependency |
-| 🧹 | **Dependency slop** | Redundant HTTP clients, native-replaceable packages, declared-but-unused deps |
-| 🧠 | **Logic flaws** *(optional)* | Local Ollama (free) or Anthropic Haiku→Sonnet — failures degrade gracefully |
+| 👻 | **Hallucinated / slopsquatted packages** | live npm & PyPI lookup — a definitive 404 |
+| 🔑 | **Committed secrets** | 12 credential formats + entropy, with placeholder filtering |
+| 🛡️ | **Known CVEs** | [OSV](https://osv.dev) advisory IDs, aggregated per package |
+| 🧹 | **Dependency slop** | redundant clients, native replacements, declared-but-unused |
+| 🧠 | **Logic flaws** *(opt-in)* | local Ollama (free) or Anthropic Haiku→Sonnet |
 
----
+## What it looks like
 
-## 🚀 Try it in 3 ways
+This is a real analysis from the live instance — [see it on the PR](https://github.com/0-uddeshya-0/Vouch/pull/3):
 
-### 1. Install the GitHub App on your repo (zero setup)
+<div align="center">
+<img src="docs/assets/pr-comment.png" alt="Vouch PR comment showing a hallucinated package and lodash CVEs" width="760" />
+</div>
 
-If a Vouch instance is already running, installing it is two clicks — no code, no deploy:
+One comment per PR, updated in place on every push — never a wall of stacked
+bot comments. Zero findings means zero comments. Findings flow into a triage
+dashboard with one-click dismissal:
 
-> **`https://github.com/apps/<your-app-slug>`** → *Install* → pick a repo → open a PR.
+<div align="center">
+<img src="docs/assets/dashboard-findings.png" alt="Vouch dashboard with severity stats and findings table" width="760" />
+</div>
 
-That's the link you share with teammates and friends. Vouch comments on their PRs within seconds; they host nothing. *(Create the app and get your slug in [Deploy your own](#-deploy-your-own-free).)*
+## 🚀 Try it in 90 seconds
 
-### 2. See it locally in 90 seconds (no GitHub App needed)
+**Fastest:** if a Vouch instance is running (like the live one), installing is two clicks —
+**[github.com/apps/vouch-review](https://github.com/apps/vouch-review)** → Install → open a PR. You host nothing.
 
-Runs the **real** pipeline — live registry lookups, the OSV CVE database, the secrets scanner — against a fixture PR full of typical AI mistakes, then opens a styled dashboard:
+**Locally, no GitHub App needed** — runs the *real* pipeline (live registry
+lookups, OSV, secrets scanner) against a fixture PR full of AI-assistant mistakes:
 
 ```bash
 pnpm install
 
-# throwaway Postgres (skip if you already have one on DATABASE_URL)
+# throwaway Postgres (skip if you have one on DATABASE_URL)
 docker run -d --name vouch-demo-db -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres \
   -e POSTGRES_DB=vouch -p 5433:5432 postgres:15-alpine
 export DATABASE_URL="postgresql://postgres:postgres@localhost:5433/vouch?schema=public"
 npx prisma migrate deploy
 
-pnpm demo                                              # analyze + seed the dashboard
-DASHBOARD_DEMO_MODE=true pnpm --filter @vouch/dashboard dev   # → http://localhost:3002/findings
+pnpm demo                                                     # analyze + seed
+DASHBOARD_DEMO_MODE=true pnpm --filter @vouch/dashboard dev   # → localhost:3002/findings
 ```
 
-No database handy? `pnpm demo --no-db` prints the analysis and writes the exact PR comment to `scripts/demo/pr-comment-preview.md`.
-
-### 3. Self-host the whole thing
-
-Free-tier deploy in [the section below](#-deploy-your-own-free), or run the full stack locally — see [Local development](#-local-development).
-
----
+No database handy? `pnpm demo --no-db` prints the analysis and writes the exact
+PR comment markdown to `scripts/demo/pr-comment-preview.md`.
 
 ## 🆓 Deploy your own (free)
 
-Vouch is designed to cost **nothing** to run: the backend ships an **all-in-one mode** (webhook server + analysis worker in one process) and a **`deterministic` mode** that needs no LLM, no API key, and no GPU. The whole stack fits on permanently-free tiers.
+The whole stack runs on permanent free tiers — **$0/month**, no credit card:
+the backend ships an all-in-one mode (webhook server + worker in one process)
+and a `deterministic` analysis mode that needs no LLM, no API key, no GPU.
 
-| Piece | Free host | Notes |
-|-------|-----------|-------|
-| Backend (API + worker) | **Render** free web service | One service via [`render.yaml`](render.yaml) |
-| Redis | **Render** free Key Value | declared in the blueprint, wired automatically |
-| Dashboard | **Vercel** Hobby | [`apps/dashboard/vercel.json`](apps/dashboard/vercel.json) |
-| Postgres | **Neon** free | paste `DATABASE_URL` |
+| Piece | Free host |
+|-------|-----------|
+| Backend (API + worker) | **Render** free web service — one [`render.yaml`](render.yaml) blueprint |
+| Redis | **Render** free Key Value — declared in the blueprint, wired automatically |
+| Postgres | **Neon** free |
+| Dashboard | **Vercel** Hobby |
 
-**Steps:**
+```bash
+# 1. Create your GitHub App (one browser approval — correct permissions included)
+node scripts/github-app/create-github-app.mjs https://<your-app>.onrender.com/webhooks/github
 
-1. **Create the GitHub App** (one browser approval — no manual permission clicking):
-   ```bash
-   node scripts/github-app/create-github-app.mjs https://<your-render-app>.onrender.com/webhooks/github
-   ```
-   This writes your App ID, private key, and webhook secret to a ready-to-paste `.env` block, and prints your public install link.
-2. **Backend → Render:** New ＋ → *Blueprint* → pick this repo. Render reads `render.yaml`, creates the Key Value store automatically, and prompts for the env values from step 1 plus your Neon `DATABASE_URL`.
-3. **Dashboard → Vercel:** import the repo, root `apps/dashboard`, add `DATABASE_URL`, `NEXTAUTH_*`, `GITHUB_ID/SECRET`, and `DASHBOARD_ALLOWED_LOGINS`.
-4. **Install** the app on your repos and share the public link. Done.
+# 2. Render: New + → Blueprint → pick your fork. Paste the env values when prompted.
+# 3. Vercel: import the repo, root apps/dashboard, set the dashboard env vars.
+# 4. Install your app, share your install link. Done.
+```
 
-Full walkthrough (incl. a paid Railway one-click option): [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
-
----
+Step-by-step walkthrough: **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** ·
+Day-2 runbook: **[docs/OPERATIONS.md](docs/OPERATIONS.md)**
 
 ## 🔍 How it works
-
-Every pull request triggers a multi-stage pipeline. Deterministic analysis always runs; the LLM is optional icing that can never block a merge.
 
 ```mermaid
 flowchart LR
   GH[GitHub PR] --> WH[Webhook API]
   WH -->|HMAC verified, deduped| Q[(Redis / BullMQ)]
   Q --> W[Analysis Worker]
-
   W --> D[Deterministic pass]
-  D -->|registry · secrets · slop| M[Merge findings]
+  D -->|registries · secrets · slop| M[Findings]
   M --> O[OSV CVE scan] --> M
-  M --> L{LLM escalation?}
+  M --> L{LLM?}
   L -->|deterministic| M
-  L -->|zero-cost| OL[Ollama] --> M
-  L -->|full| AI[Haiku → Sonnet] --> M
-
+  L -->|zero-cost / full| AI[Ollama / Haiku→Sonnet] --> M
   M --> CR[Check run]
   M --> CM[PR comment]
   M --> DB[(PostgreSQL)] --> DASH[Dashboard]
 ```
 
-1. **Webhook** — Fastify verifies the GitHub HMAC signature (constant-time) and deduplicates deliveries in Redis.
-2. **Queue** — BullMQ enqueues the job so the webhook returns in milliseconds.
-3. **Deterministic pass** — TypeScript-compiler & tree-sitter import extraction, npm/PyPI verification, secret + entropy scanning, dependency-quality heuristics.
-4. **OSV pass** — batch CVE lookup for every added dependency, aggregated to one finding per package.
-5. **LLM escalation** *(optional)* — SQL injection, unsafe `eval`, auth bypass; failures are swallowed.
-6. **Output** — a GitHub check run and a single, continuously-updated PR comment, plus rows in the triage dashboard.
-
----
+The webhook verifies and enqueues in milliseconds; the worker analyzes only the
+PR diff (repos are **never cloned**), checks every import and manifest entry
+against live registries, scans for secrets, batch-queries OSV, and posts a
+check run + a single self-updating comment. Registry outages can't produce
+false positives (404 is proof; a network error is "unknown") and LLM failures
+can't block a merge. Full detail: **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
 
 ## ⚙️ Configuration
 
-### Analysis modes (`VOUCH_MODE`)
+**Analysis modes** (`VOUCH_MODE`): `deterministic` *(default, $0)* ·
+`zero-cost` *(local Ollama)* · `full` *(Anthropic Haiku→Sonnet, ~cents/PR)*.
 
-| Mode | LLM | Needs | Cost |
-|------|-----|-------|------|
-| `deterministic` *(default)* | none | nothing | **$0** |
-| `zero-cost` | local Ollama | an Ollama instance | $0 |
-| `full` | Anthropic Haiku → Sonnet | `ANTHROPIC_API_KEY` | ~pennies/PR |
-
-### Per-repository `vouch.json`
-
-Drop a `vouch.json` in any repo to tune analysis (fetched per-PR, cached 5 min). Invalid config falls back to defaults — analysis never fails because of it.
+**Per-repo tuning** — drop a `vouch.json` in any repo root (fetched per-PR,
+cached, invalid config falls back to defaults):
 
 ```json
 {
@@ -164,60 +150,47 @@ Drop a `vouch.json` in any repo to tune analysis (fetched per-PR, cached 5 min).
 }
 ```
 
-### Key environment variables
+**Key environment variables** — see [`.env.example`](.env.example) for all:
 
 | Variable | Purpose |
 |----------|---------|
-| `DATABASE_URL`, `REDIS_URL` | Postgres + Redis connections |
-| `GITHUB_APP_ID`, `GITHUB_PRIVATE_KEY`, `GITHUB_WEBHOOK_SECRET` | GitHub App auth |
-| `VOUCH_MODE` | `deterministic` / `zero-cost` / `full` |
-| `VOUCH_DASHBOARD_URL` | base URL for "View details" links in PR comments |
-| `DASHBOARD_ALLOWED_LOGINS` | GitHub logins allowed into the dashboard — **required in production** |
-| `ADMIN_API_TOKEN` | enables the `/api/v1` admin API (disabled when unset) |
+| `DATABASE_URL` / `REDIS_URL` | Postgres + Redis |
+| `GITHUB_APP_ID` / `GITHUB_PRIVATE_KEY` / `GITHUB_WEBHOOK_SECRET` | GitHub App auth |
+| `VOUCH_DASHBOARD_URL` | base URL for PR-comment detail links |
+| `DASHBOARD_ALLOWED_LOGINS` | dashboard allowlist — **required in production** |
+| `ADMIN_API_TOKEN` | enables `/api/v1` admin API (off when unset) |
 
-See [`.env.example`](.env.example) and [`.env.production.example`](.env.production.example) for the full list.
-
----
-
-## 🧑‍💻 Local development
+## 🧑‍💻 Development
 
 ```bash
 # Node 20+, pnpm 9+, Docker
 pnpm install
 docker compose -f infra/docker/docker-compose.dev.yml up -d db redis
 npx prisma migrate dev
-pnpm dev            # API + worker + dashboard via Turborepo
+pnpm dev                          # API + worker + dashboard
 
-pnpm --filter @vouch/core test    # 74 tests
-pnpm build
+pnpm --filter @vouch/core test    # 90 tests
+pnpm build && pnpm typecheck
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the full contributor guide.
-
----
-
-## 📦 Project structure
-
 ```
-apps/
-  api/         # Fastify webhook server + BullMQ worker (+ all-in-one & demo entries)
-  dashboard/   # Next.js 14 triage UI
-packages/
-  core/        # Analyzers, registry clients, OSV scanner, LLM router, formatters
-  config/      # Zod-validated env (fail-fast on boot)
-  types/       # Shared TypeScript types
-prisma/        # Database schema + migrations
-infra/docker/  # Compose files (prod, dev, Ollama)
-render.yaml    # Free single-service backend blueprint
+apps/api          Fastify webhooks + BullMQ worker (+ all-in-one & demo entries)
+apps/dashboard    Next.js 14 triage UI
+packages/core     Analyzers, registry clients, OSV, LLM router, formatters
+packages/config   Zod-validated env (fail fast at boot)
+packages/types    Shared types
+prisma/           Schema + migrations
+render.yaml       Free one-service backend blueprint
 ```
 
----
+Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) and
+[SECURITY.md](SECURITY.md).
 
 ## License
 
 MIT — see [LICENSE](LICENSE).
 
 <div align="center">
-<sub>Built for teams who love AI-assisted coding but refuse to trust it blindly.</sub><br />
-<sub>⭐ Star it · 🐛 <a href="https://github.com/0-uddeshya-0/Vouch/issues">Report an issue</a> · 🤝 <a href="CONTRIBUTING.md">Contribute</a></sub>
+<sub>Built for teams who love AI-assisted coding but refuse to trust it blindly.</sub><br/>
+<sub>⭐ <a href="https://github.com/0-uddeshya-0/Vouch">Star the repo</a> · 🤖 <a href="https://github.com/apps/vouch-review">Install the app</a> · 🐛 <a href="https://github.com/0-uddeshya-0/Vouch/issues">Report an issue</a></sub>
 </div>

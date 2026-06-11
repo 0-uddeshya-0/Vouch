@@ -9,6 +9,10 @@ export const authOptions: NextAuthOptions = {
     GithubProvider({
       clientId: dashboardEnv.GITHUB_ID,
       clientSecret: dashboardEnv.GITHUB_SECRET,
+      // Plain /user fetch. The default provider also fetches /user/emails,
+      // which 403s for GitHub App tokens without the Email addresses
+      // permission — we key sessions on `login`, so we don't need email.
+      userinfo: { url: 'https://api.github.com/user' },
     }),
   ],
   secret: dashboardEnv.NEXTAUTH_SECRET,

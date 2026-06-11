@@ -1,7 +1,16 @@
 import Link from 'next/link';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/auth';
+import { SignInButton } from '@/components/sign-in-button';
 import { isDemoMode } from '@/lib/demo-mode';
+
+const AUTH_ERROR_MESSAGES: Record<string, string> = {
+  AccessDenied:
+    'This GitHub account is not on the dashboard allowlist. Add your login to DASHBOARD_ALLOWED_LOGINS.',
+  Configuration: 'Authentication is misconfigured — check the dashboard environment variables.',
+  OAuthCallback: 'GitHub sign-in failed during the callback. Verify the app callback URL and try again.',
+  OAuthSignin: 'Could not start GitHub sign-in. Try again in a moment.',
+};
 
 const PIPELINE_STEPS = [
   {
@@ -26,10 +35,17 @@ const PIPELINE_STEPS = [
   },
 ];
 
-export default async function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams?: { error?: string };
+}) {
   const session = await getServerSession(authOptions);
   const demo = isDemoMode();
   const canViewFindings = Boolean(session) || demo;
+  const authError = searchParams?.error
+    ? AUTH_ERROR_MESSAGES[searchParams.error] ?? `Sign-in failed (${searchParams.error}). Try again.`
+    : null;
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-20 sm:px-6 lg:px-8">
@@ -51,6 +67,12 @@ export default async function Home() {
           evidence, not another model&rsquo;s opinion.
         </p>
 
+        {authError && (
+          <div className="mx-auto mt-6 max-w-md rounded-lg border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm text-red-200">
+            {authError}
+          </div>
+        )}
+
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           {canViewFindings ? (
             <Link
@@ -61,12 +83,7 @@ export default async function Home() {
               <span aria-hidden>→</span>
             </Link>
           ) : (
-            <Link
-              href="/api/auth/signin?callbackUrl=/findings"
-              className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-5 py-3 text-sm font-semibold text-emerald-950 shadow-lg shadow-emerald-500/20 transition hover:bg-emerald-400"
-            >
-              Sign in with GitHub
-            </Link>
+            <SignInButton />
           )}
           <a
             href="https://github.com/0-uddeshya-0/Vouch"
