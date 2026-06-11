@@ -28,8 +28,7 @@ services:
     region: frankfurt
     dockerfilePath: ./Dockerfile
     dockerContext: .
-    # Migrate, then boot server + worker in one process.
-    dockerCommand: sh -c "node node_modules/prisma/build/index.js migrate deploy --schema=prisma/schema.prisma && node apps/api/dist/all-in-one.js"
+    # The image's default CMD migrates then boots server + worker in one process.
     healthCheckPath: /health
     autoDeploy: true
     envVars:

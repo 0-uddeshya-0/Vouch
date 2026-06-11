@@ -48,7 +48,8 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
   CMD node -e "require('http').get('http://127.0.0.1:3000/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"
 
 ENTRYPOINT ["dumb-init", "--"]
-# Default command = API server. Runs `prisma migrate deploy` first so the schema
-# is up to date before the server boots. `migrate deploy` takes a Postgres advisory
-# lock, so it is safe even if the worker service runs it concurrently.
-CMD ["sh", "-c", "node node_modules/prisma/build/index.js migrate deploy --schema=prisma/schema.prisma && node apps/api/dist/server.js"]
+# Default command = all-in-one (webhook server + worker in one process) — the
+# free single-service deploy shape. Runs `prisma migrate deploy` first; it takes
+# a Postgres advisory lock, so it is safe even when run concurrently.
+# For split deployments override CMD with apps/api/dist/server.js or worker.js.
+CMD ["sh", "-c", "node node_modules/prisma/build/index.js migrate deploy --schema=prisma/schema.prisma && node apps/api/dist/all-in-one.js"]
