@@ -17,3 +17,4 @@ scripts/demo/pr-comment-preview.md
 
 # Local Claude Code / editor config
 .claude/
+.vercel
