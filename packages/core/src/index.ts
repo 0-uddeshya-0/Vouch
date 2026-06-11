@@ -23,6 +23,7 @@ export { scanForSecrets } from './security/secrets';
 export { entropyScanner } from './security/entropy';
 export { formatPRComment } from './format/comment';
 export {
+  VOUCH_COMMENT_MARKER,
   buildCheckRunPresentation,
   classifyFinding,
   formatPRComment as formatGitHubPRComment,
@@ -40,6 +41,8 @@ export {
   dependencyParseLogger,
 } from './parsers/dependency-parser';
 export type { TypeScriptImport, PythonImport } from './parsers/dependency-parser';
+export { extractAddedNpmDependencies } from './parsers/manifest-fragments';
+export type { AddedManifestDependency } from './parsers/manifest-fragments';
 export { RegistryClient, defaultRegistryClient, registryClientLogger } from './parsers/registry-client';
 export type {
   NpmPackageInfo,

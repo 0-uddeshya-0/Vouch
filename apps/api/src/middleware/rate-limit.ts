@@ -27,9 +27,9 @@ export function createRateLimiter(config: Partial<RateLimitConfig> = {}) {
     request: FastifyRequest,
     reply: FastifyReply
   ): Promise<void> => {
-    const params = request.params as { installationId?: string };
-    const installationId = params.installationId ?? 'global';
-    const key = `ratelimit:${installationId}`;
+    // Key by client IP so one noisy client cannot exhaust the budget for everyone.
+    const clientKey = request.ip || 'unknown';
+    const key = `ratelimit:${clientKey}`;
     
     try {
       const current = await redis.incr(key);
@@ -48,7 +48,7 @@ export function createRateLimiter(config: Partial<RateLimitConfig> = {}) {
       
       if (current > maxRequests) {
         auditLogger.log('rate_limit_hit', {
-          installationId,
+          clientKey,
           current,
           max: maxRequests,
         });

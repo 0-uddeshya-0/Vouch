@@ -225,14 +225,9 @@ Brief description of changes
 
 **Do not open public issues for security vulnerabilities.**
 
-Instead:
+Report privately via [GitHub private vulnerability reporting](https://github.com/0-uddeshya-0/Vouch/security/advisories/new) with a description and reproduction steps.
 
-1. Email security@vouch.dev
-2. Include detailed description
-3. Provide reproduction steps
-4. Allow 90 days for disclosure
-
-See [SECURITY.md](./SECURITY.md) for full policy.
+See [SECURITY.md](./SECURITY.md) for the full policy.
 
 ## Development Guidelines
 
@@ -258,8 +253,6 @@ See [SECURITY.md](./SECURITY.md) for full policy.
 
 ## Questions?
 
-- 📖 [Documentation](https://docs.vouch.dev)
-- 💬 [Discord](https://discord.gg/vouch)
-- 📧 [Email](mailto:contributing@vouch.dev)
+Open a [GitHub Discussion or issue](https://github.com/0-uddeshya-0/Vouch/issues) — that's the fastest way to reach the maintainers.
 
-Thank you for contributing to Vouch! 🚀
+Thank you for contributing to Vouch!

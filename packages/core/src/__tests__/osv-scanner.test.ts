@@ -25,7 +25,7 @@ describe('osv-scanner', () => {
     ]);
   });
 
-  it('maps OSV batch vulnerabilities to FindingInput objects', async () => {
+  it('aggregates OSV vulnerabilities into one finding per package', async () => {
     const mockFetch = jest.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -37,6 +37,12 @@ describe('osv-scanner', () => {
                 summary: 'Prototype pollution in lodash',
                 aliases: ['CVE-2020-8203'],
                 database_specific: { severity: 'HIGH', cvss_score: 7.4 },
+              },
+              {
+                id: 'GHSA-aaaa-bbbb-cccc',
+                summary: 'ReDoS in lodash',
+                aliases: ['CVE-2019-10744'],
+                database_specific: { severity: 'CRITICAL', cvss_score: 9.1 },
               },
             ],
           },
@@ -53,10 +59,35 @@ describe('osv-scanner', () => {
       'https://api.osv.dev/v1/querybatch',
       expect.objectContaining({ method: 'POST' })
     );
+    // One aggregated finding, not one per CVE
     expect(findings).toHaveLength(1);
     expect(findings[0].type).toBe('security');
     expect(findings[0].confidence).toBe(1);
-    expect(findings[0].title).toContain('CVE-2020-8203');
-    expect(findings[0].description).toContain('https://osv.dev/vulnerability/');
+    expect(findings[0].title).toBe('2 known vulnerabilities in lodash@4.17.15');
+    // Severity is the highest across all advisories
+    expect(findings[0].severity).toBe('critical');
+    expect(findings[0].description).toContain('CVE-2020-8203');
+    expect(findings[0].description).toContain('CVE-2019-10744');
+    expect(findings[0].description).toContain('osv.dev');
+  });
+
+  it('lists at most five advisories and summarizes the rest', async () => {
+    const vulns = Array.from({ length: 8 }, (_, i) => ({
+      id: `GHSA-000${i}-aaaa-bbbb`,
+      summary: `Vuln ${i}`,
+    }));
+    const mockFetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ results: [{ vulns }] }),
+    });
+
+    const findings = await checkVulnerabilities(
+      [{ name: 'axios', version: '1.6.0', ecosystem: 'npm' }],
+      mockFetch as unknown as typeof fetch
+    );
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0].title).toBe('8 known vulnerabilities in axios@1.6.0');
+    expect(findings[0].description).toContain('and 3 more');
   });
 });

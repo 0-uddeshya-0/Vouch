@@ -6,6 +6,10 @@
     "build": "prisma generate --schema=../../prisma/schema.prisma && tsc",
     "dev": "tsx watch src/server.ts",
     "start": "node dist/server.js",
+    "start:worker": "node dist/worker.js",
+    "start:all": "node dist/all-in-one.js",
+    "dev:worker": "tsx watch src/worker.ts",
+    "demo": "tsx src/demo.ts",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
     "db:generate": "prisma generate --schema=../../prisma/schema.prisma"

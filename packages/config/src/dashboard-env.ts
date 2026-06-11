@@ -18,6 +18,21 @@ const dashboardEnvSchema = z.object({
   GITHUB_SECRET: z
     .string({ required_error: 'GITHUB_SECRET is required for dashboard GitHub OAuth login' })
     .min(1, 'GITHUB_SECRET is required for dashboard GitHub OAuth login'),
+  /**
+   * Comma-separated GitHub logins allowed to sign in to the dashboard.
+   * Required in production — without it, every GitHub account could read and
+   * dismiss findings (which include code snippets from private repos).
+   * In development, leaving it unset allows any login.
+   */
+  DASHBOARD_ALLOWED_LOGINS: z
+    .string()
+    .optional()
+    .transform((value) =>
+      (value ?? '')
+        .split(',')
+        .map((login) => login.trim().toLowerCase())
+        .filter(Boolean)
+    ),
 });
 
 export type DashboardEnv = z.infer<typeof dashboardEnvSchema>;

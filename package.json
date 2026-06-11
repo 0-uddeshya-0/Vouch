@@ -6,12 +6,15 @@
   "scripts": {
     "postinstall": "prisma generate --schema=prisma/schema.prisma",
     "build": "turbo run build",
+    "demo": "turbo run build --filter=@vouch/api && node apps/api/dist/demo.js",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
     "db:generate": "turbo run db:generate",
     "db:migrate": "turbo run db:migrate",
+    "db:push": "prisma db push --schema=prisma/schema.prisma",
+    "db:deploy": "prisma migrate deploy --schema=prisma/schema.prisma",
     "db:studio": "turbo run db:studio",
     "clean": "turbo run clean && rm -rf node_modules"
   },

@@ -5,6 +5,9 @@
 export const DEFAULT_DASHBOARD_URL = 'http://localhost:3002';
 export const MAX_TABLE_FINDINGS = 10;
 
+/** Hidden marker used to find and update Vouch's existing PR comment instead of posting a new one. */
+export const VOUCH_COMMENT_MARKER = '<!-- vouch:analysis-comment -->';
+
 export interface FormattedFinding {
   id?: string;
   type: string;
@@ -186,6 +189,7 @@ export function formatPRComment(
   const dashboardUrl = getDashboardBaseUrl(meta.dashboardBaseUrl);
 
   const lines: string[] = [
+    VOUCH_COMMENT_MARKER,
     '## Vouch Analysis',
     '',
     `Analysis \`${meta.analysisId}\` · model **${meta.model}** · confidence threshold **${meta.confidence}**`,

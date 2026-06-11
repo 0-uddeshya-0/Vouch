@@ -4,12 +4,16 @@ const nextConfig = {
     instrumentationHook: true,
   },
   async rewrites() {
-    return [
-      {
-        source: '/api/:path*',
-        destination: 'http://localhost:3000/api/:path*',
-      },
-    ];
+    const apiProxy = process.env.API_PROXY_URL;
+    if (process.env.NODE_ENV === 'development' && apiProxy) {
+      return [
+        {
+          source: '/api/:path*',
+          destination: `${apiProxy.replace(/\/$/, '')}/api/:path*`,
+        },
+      ];
+    }
+    return [];
   },
 };
 

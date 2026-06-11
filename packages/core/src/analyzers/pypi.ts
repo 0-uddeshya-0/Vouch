@@ -29,6 +29,40 @@ function parseRequirementsLines(patch: string): string[] {
   return names;
 }
 
+/**
+ * Common Python imports whose PyPI distribution name differs from the module name.
+ * Without this map, `import cv2` would be flagged because there is no "cv2" project.
+ */
+const IMPORT_TO_DISTRIBUTION: Record<string, string> = {
+  cv2: 'opencv-python',
+  PIL: 'pillow',
+  pil: 'pillow',
+  yaml: 'pyyaml',
+  sklearn: 'scikit-learn',
+  skimage: 'scikit-image',
+  bs4: 'beautifulsoup4',
+  dotenv: 'python-dotenv',
+  dateutil: 'python-dateutil',
+  jwt: 'pyjwt',
+  Crypto: 'pycryptodome',
+  OpenSSL: 'pyopenssl',
+  serial: 'pyserial',
+  usb: 'pyusb',
+  magic: 'python-magic',
+  fitz: 'pymupdf',
+  docx: 'python-docx',
+  pptx: 'python-pptx',
+  github: 'pygithub',
+  googleapiclient: 'google-api-python-client',
+  mpl_toolkits: 'matplotlib',
+  attr: 'attrs',
+  psycopg2: 'psycopg2-binary',
+};
+
+function resolveDistributionName(moduleName: string): string {
+  return IMPORT_TO_DISTRIBUTION[moduleName] ?? moduleName;
+}
+
 function createAnalyzePyModule(registry: RegistryClient) {
   return async function analyzePyModule(
     moduleName: string,
@@ -36,8 +70,12 @@ function createAnalyzePyModule(registry: RegistryClient) {
     line: number,
     raw: string
   ): Promise<FindingInput | null> {
-    const meta = await registry.getPypiPackage(moduleName);
+    const meta = await registry.getPypiPackage(resolveDistributionName(moduleName));
     if (meta.exists) {
+      return null;
+    }
+    // Skip when the registry could not be reached — "unknown" is not "missing".
+    if (!meta.verified) {
       return null;
     }
     return {
