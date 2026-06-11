@@ -4,7 +4,7 @@ import {
   shouldIgnorePackage,
   type RepoConfig,
 } from '../config/repo-config';
-import { extractAddedLinesFromPatch } from '../parsers/diff-lines';
+import { extractAddedNpmDependencies } from '../parsers/manifest-fragments';
 import { RegistryClient, defaultRegistryClient } from '../parsers/registry-client';
 import { extractPackageName } from '../parsers/module-utils';
 
@@ -32,6 +32,11 @@ function createAnalyzeImportCore(registry: RegistryClient, repoConfig: RepoConfi
     if (meta.exists) {
       return null;
     }
+    // Only report when the registry definitively returned 404. A failed lookup
+    // (outage, rate limit) must never block a PR with a false hallucination.
+    if (!meta.verified) {
+      return null;
+    }
     return {
       type: 'hallucination',
       severity: 'medium',
@@ -40,7 +45,7 @@ function createAnalyzeImportCore(registry: RegistryClient, repoConfig: RepoConfi
       lineStart: line,
       lineEnd: line,
       title: `npm package not found: ${packageName}`,
-      description: `The import references \`${raw}\` but the package \`${packageName}\` does not exist on the public npm registry (or could not be verified).`,
+      description: `The import references \`${raw}\` but the package \`${packageName}\` does not exist on the public npm registry.`,
       codeSnippet: raw,
     };
   };
@@ -70,24 +75,16 @@ export function createNpmAnalyzer(
   return {
     async analyzePackageJson(patch: string, filePath: string): Promise<{ findings: FindingInput[] }> {
       const findings: FindingInput[] = [];
-      const { syntheticSource } = extractAddedLinesFromPatch(patch);
-      let data: { dependencies?: Record<string, string>; devDependencies?: Record<string, string> };
-      try {
-        data = JSON.parse(syntheticSource || '{}') as {
-          dependencies?: Record<string, string>;
-          devDependencies?: Record<string, string>;
-        };
-      } catch {
-        return { findings };
-      }
-      const deps = [
-        ...Object.keys(data.dependencies ?? {}),
-        ...Object.keys(data.devDependencies ?? {}),
-      ];
-      for (const dep of deps) {
-        const pkg = extractPackageName(dep);
-        const line = firstLineForDependency(patch, dep);
-        const f = await analyzeImportCore(pkg, filePath, line, dep);
+      // Handles both whole-file additions (valid JSON) and lines added to an
+      // existing manifest (JSON fragments).
+      const deps = extractAddedNpmDependencies(patch);
+      for (const { name } of deps) {
+        const pkg = extractPackageName(name);
+        if (!pkg) {
+          continue;
+        }
+        const line = firstLineForDependency(patch, name);
+        const f = await analyzeImportCore(pkg, filePath, line, name);
         if (f) {
           findings.push(f);
         }

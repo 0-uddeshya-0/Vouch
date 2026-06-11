@@ -21,11 +21,16 @@ const apiEnvSchema = z.object({
     .string({ required_error: 'GITHUB_WEBHOOK_SECRET is required to verify GitHub webhooks' })
     .min(1, 'GITHUB_WEBHOOK_SECRET is required to verify GitHub webhooks'),
   LLM_CONFIDENCE_THRESHOLD: z.coerce.number().min(0).max(1).default(0.7),
+  /**
+   * Bearer token for the /api/v1 admin endpoints. When unset, those endpoints
+   * are disabled entirely (503) — never exposed unauthenticated.
+   */
+  ADMIN_API_TOKEN: z.string().min(16).optional(),
   VOUCH_DASHBOARD_URL: z
     .string()
     .url()
     .default('http://localhost:3002'),
-  VOUCH_MODE: z.enum(['zero-cost', 'full']).default('zero-cost'),
+  VOUCH_MODE: z.enum(['deterministic', 'zero-cost', 'full']).default('deterministic'),
   ANTHROPIC_API_KEY: z.string().optional(),
   OLLAMA_BASE_URL: z.string().url().default('http://localhost:11434'),
   OLLAMA_MODEL: z.string().default('codellama:7b-code'),

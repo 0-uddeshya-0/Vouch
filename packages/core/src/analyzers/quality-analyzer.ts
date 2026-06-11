@@ -5,7 +5,7 @@ import {
   shouldIgnorePackage,
   type RepoConfig,
 } from '../config/repo-config';
-import { extractAddedLinesFromPatch } from '../parsers/diff-lines';
+import { extractAddedNpmDependencies } from '../parsers/manifest-fragments';
 import { extractPackageName } from '../parsers/module-utils';
 import {
   DEPENDENCY_OVERLAP_GROUPS,
@@ -32,26 +32,8 @@ function normalizePkg(name: string): string {
 }
 
 function parseAddedDependenciesFromPatch(patch: string): string[] {
-  const { syntheticSource } = extractAddedLinesFromPatch(patch);
-  if (!syntheticSource.trim()) {
-    return [];
-  }
-  try {
-    const data = JSON.parse(syntheticSource) as {
-      dependencies?: Record<string, string>;
-      devDependencies?: Record<string, string>;
-      peerDependencies?: Record<string, string>;
-      optionalDependencies?: Record<string, string>;
-    };
-    return [
-      ...Object.keys(data.dependencies ?? {}),
-      ...Object.keys(data.devDependencies ?? {}),
-      ...Object.keys(data.peerDependencies ?? {}),
-      ...Object.keys(data.optionalDependencies ?? {}),
-    ];
-  } catch {
-    return [];
-  }
+  // Tolerates JSON fragments from edits to an existing package.json.
+  return extractAddedNpmDependencies(patch).map((dep) => dep.name);
 }
 
 function lineForDependencyInPatch(patch: string, dep: string): number {

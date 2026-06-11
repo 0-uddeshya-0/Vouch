@@ -38,7 +38,7 @@ function shouldEscalate(finding: LLMRawFinding, threshold: number): boolean {
 }
 
 export class LLMRouter {
-  private readonly tier1Client: LLMClient;
+  private readonly tier1Client: LLMClient | null;
   private readonly tier2Client: LLMClient | null;
   private readonly escalationThreshold: number;
   private readonly mode: LLMRouterConfig['mode'];
@@ -46,6 +46,13 @@ export class LLMRouter {
   constructor(config: LLMRouterConfig) {
     this.mode = config.mode;
     this.escalationThreshold = config.escalationThreshold ?? DEFAULT_ESCALATION_THRESHOLD;
+
+    if (config.mode === 'deterministic') {
+      // No LLM tier — analyzeDiff short-circuits to empty findings.
+      this.tier1Client = null;
+      this.tier2Client = null;
+      return;
+    }
 
     if (config.mode === 'zero-cost') {
       this.tier1Client = new OllamaClient({
@@ -87,15 +94,21 @@ export class LLMRouter {
       outputTokens: 0,
     };
 
+    if (this.mode === 'deterministic' || !this.tier1Client) {
+      return empty;
+    }
+
     if (input.files.length === 0) {
       return empty;
     }
+
+    const tier1Client = this.tier1Client;
 
     try {
       const diffText = buildDiffText(input.files);
       const deterministicSummary = summarizeDeterministicFindings(input.deterministicFindings);
 
-      const tier1 = await this.tier1Client.analyzeDiff(diffText, deterministicSummary);
+      const tier1 = await tier1Client.analyzeDiff(diffText, deterministicSummary);
       let tier1Calls = 1;
       let tier2Calls = 0;
       let estimatedCost =

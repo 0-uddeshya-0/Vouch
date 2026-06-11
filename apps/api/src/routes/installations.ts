@@ -3,8 +3,39 @@
  * API endpoints for managing installations
  */
 
+import crypto from 'crypto';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { env } from '@vouch/config/env';
 import { apiRateLimiter } from '../middleware/rate-limit';
+
+/**
+ * Admin-only API. Requires `Authorization: Bearer <ADMIN_API_TOKEN>`.
+ * When ADMIN_API_TOKEN is not configured the endpoints are disabled — these
+ * routes expose installation metadata (including private repo names) and
+ * allow plan changes, so they must never run unauthenticated.
+ */
+async function requireAdminToken(
+  request: FastifyRequest,
+  reply: FastifyReply
+): Promise<void> {
+  const configured = env.ADMIN_API_TOKEN;
+  if (!configured) {
+    reply.code(503).send({
+      error: 'Service Unavailable',
+      message: 'Admin API is disabled. Set ADMIN_API_TOKEN to enable it.',
+    });
+    return;
+  }
+
+  const header = request.headers.authorization ?? '';
+  const token = header.startsWith('Bearer ') ? header.slice(7) : '';
+  const expected = Buffer.from(configured);
+  const provided = Buffer.from(token);
+
+  if (provided.length !== expected.length || !crypto.timingSafeEqual(provided, expected)) {
+    reply.code(401).send({ error: 'Unauthorized', message: 'Invalid admin token' });
+  }
+}
 
 interface InstallationRow {
   id: number;
@@ -47,6 +78,7 @@ interface DailyUsageSlice {
 }
 
 export async function installationRoutes(fastify: FastifyInstance): Promise<void> {
+  fastify.addHook('preHandler', requireAdminToken);
   fastify.addHook('preHandler', apiRateLimiter);
 
   fastify.get('/installations', async (_request: FastifyRequest, _reply: FastifyReply) => {

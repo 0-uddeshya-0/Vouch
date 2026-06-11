@@ -6,6 +6,7 @@
   "scripts": {
     "postinstall": "prisma generate --schema=prisma/schema.prisma",
     "build": "turbo run build",
+    "demo": "turbo run build --filter=@vouch/api && node apps/api/dist/demo.js",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "test": "turbo run test",

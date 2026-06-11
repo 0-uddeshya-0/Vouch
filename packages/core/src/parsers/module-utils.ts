@@ -252,13 +252,25 @@ const PYTHON_STDLIB = new Set([
   'zoneinfo',
 ]);
 
+/**
+ * Returns the npm package name for a module specifier, or '' when the specifier
+ * cannot refer to a registry package (relative paths, absolute paths, tsconfig
+ * path aliases like `@/lib/x` or `~/utils`, subpath imports like `#internal`).
+ */
 export function extractPackageName(specifier: string): string {
   const s = specifier.trim();
   if (!s) {
     return '';
   }
+  if (s.startsWith('.') || s.startsWith('/') || s.startsWith('#') || s.startsWith('~')) {
+    return '';
+  }
   if (s.startsWith('@')) {
     const slash = s.indexOf('/', 1);
+    if (slash === 1) {
+      // '@/...' is a path alias, not a scoped package (scope name is empty)
+      return '';
+    }
     if (slash === -1) {
       return s;
     }

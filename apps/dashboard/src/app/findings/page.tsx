@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { getServerSession } from 'next-auth';
 import { Suspense } from 'react';
 import { authOptions } from '@/auth';
+import { isDemoMode } from '@/lib/demo-mode';
 import { getPrisma } from '@/lib/prisma';
 import {
   findingListInclude,
@@ -65,40 +66,85 @@ function buildWhereClause(searchParams: FindingsPageProps['searchParams']): Find
   return where;
 }
 
+interface StatCard {
+  label: string;
+  value: number;
+  accent: string;
+}
+
 export default async function FindingsPage({ searchParams }: FindingsPageProps) {
   const session = await getServerSession(authOptions);
+  const demo = isDemoMode();
   const where = buildWhereClause(searchParams);
+  const prisma = getPrisma();
 
-  const [rows, repos] = await Promise.all([
-    getPrisma().finding.findMany({
+  const [rows, repos, openBySeverity, hallucinationCount] = await Promise.all([
+    prisma.finding.findMany({
       where,
       include: findingListInclude,
       orderBy: { createdAt: 'desc' },
       take: 200,
     }) as Promise<FindingWithContext[]>,
-    getPrisma().repo.findMany({
+    prisma.repo.findMany({
       select: { fullName: true },
       orderBy: { fullName: 'asc' },
     }),
+    prisma.finding.groupBy({
+      by: ['severity'],
+      where: { status: 'open' },
+      _count: { _all: true },
+    }),
+    prisma.finding.count({ where: { status: 'open', type: 'hallucination' } }),
   ]);
 
   const findings = rows.map(toFindingRowDto);
   const repoNames = repos.map((r: { fullName: string }) => r.fullName);
 
+  const severityCount = (severity: string): number =>
+    openBySeverity.find((g: { severity: string }) => g.severity === severity)?._count._all ?? 0;
+  const totalOpen = openBySeverity.reduce(
+    (sum: number, g: { _count: { _all: number } }) => sum + g._count._all,
+    0
+  );
+
+  const stats: StatCard[] = [
+    { label: 'Open findings', value: totalOpen, accent: 'text-slate-100' },
+    {
+      label: 'Critical / High',
+      value: severityCount('critical') + severityCount('high'),
+      accent: 'text-red-400',
+    },
+    { label: 'Hallucinated packages', value: hallucinationCount, accent: 'text-amber-400' },
+    { label: 'Repositories', value: repoNames.length, accent: 'text-emerald-400' },
+  ];
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      {demo && (
+        <div className="mb-6 flex items-center gap-3 rounded-lg border border-amber-900/60 bg-amber-950/30 px-4 py-3 text-sm text-amber-200">
+          <span className="inline-flex h-2 w-2 shrink-0 rounded-full bg-amber-400" />
+          Demo mode — authentication is bypassed (development only). Run{' '}
+          <code className="rounded bg-amber-900/40 px-1.5 py-0.5 font-mono text-xs">pnpm demo</code>{' '}
+          to refresh the sample analysis.
+        </div>
+      )}
+
+      <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-sm font-medium text-emerald-500">Vouch</p>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-100">
             Security &amp; dependency findings
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-slate-400">
-            Signed in as{' '}
-            <span className="font-mono text-slate-300">
-              {session?.user?.login ?? session?.user?.name ?? 'user'}
-            </span>
-            .
+            {session ? (
+              <>
+                Signed in as{' '}
+                <span className="font-mono text-slate-300">
+                  {session.user?.login ?? session.user?.name}
+                </span>
+                .
+              </>
+            ) : null}
             {searchParams.pr ? (
               <> Showing findings for PR <span className="font-mono text-slate-300">#{searchParams.pr}</span>.</>
             ) : (
@@ -113,6 +159,22 @@ export default async function FindingsPage({ searchParams }: FindingsPageProps) 
           ← Dashboard home
         </Link>
       </header>
+
+      <div className="mb-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {stats.map((stat) => (
+          <div
+            key={stat.label}
+            className="rounded-xl border border-slate-800 bg-slate-900/40 px-4 py-4"
+          >
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              {stat.label}
+            </p>
+            <p className={`mt-1 text-2xl font-semibold tabular-nums ${stat.accent}`}>
+              {stat.value}
+            </p>
+          </div>
+        ))}
+      </div>
 
       <Suspense fallback={<div className="mb-6 h-20 animate-pulse rounded-lg bg-slate-900" />}>
         <FindingsFilter

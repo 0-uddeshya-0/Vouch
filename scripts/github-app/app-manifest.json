@@ -6,7 +6,7 @@
     "active": true
   },
   "redirect_url": "http://localhost:8765/callback",
-  "public": false,
+  "public": true,
   "default_permissions": {
     "pull_requests": "write",
     "issues": "write",

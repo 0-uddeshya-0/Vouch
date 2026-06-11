@@ -35,6 +35,10 @@ if (!WEBHOOK_URL || /REPLACE_WITH_YOUR_API_URL/.test(WEBHOOK_URL)) {
 const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, 'app-manifest.json'), 'utf8'));
 manifest.redirect_url = `http://localhost:${PORT}/callback`;
 manifest.hook_attributes = { url: WEBHOOK_URL, active: true };
+// GitHub App names are globally unique. Override with APP_NAME if "Vouch" is taken.
+if (process.env.APP_NAME) {
+  manifest.name = process.env.APP_NAME;
+}
 
 const createUrl = ORG
   ? `https://github.com/organizations/${ORG}/settings/apps/new`
@@ -111,16 +115,23 @@ const server = http.createServer(async (req, res) => {
       const app = await exchangeCode(code);
       const { pemPath, envPath } = writeOutputs(app);
       res.writeHead(200, { 'Content-Type': 'text/html' });
-      res.end(`<body style="font-family:system-ui;margin:3rem">
+      res.end(`<body style="font-family:system-ui;margin:3rem;max-width:42rem">
         <h2>✅ App "${app.slug}" created (App ID ${app.id}).</h2>
         <p>Private key saved to <code>${pemPath}</code></p>
         <p>Env block saved to <code>${envPath}</code></p>
-        <p><b>Next:</b> install the app at <a href="${app.html_url}/installations/new">${app.html_url}/installations/new</a>,
-        then paste the .env values into Railway/Vercel. You can close this tab.</p>`);
+        <p><b>Next:</b></p>
+        <ol>
+          <li>Install on your repos: <a href="${app.html_url}/installations/new">${app.html_url}/installations/new</a></li>
+          <li>Share this public link so friends can install it on theirs:
+            <br><code>https://github.com/apps/${app.slug}</code></li>
+          <li>Paste the saved env values into your host (Render/Vercel).</li>
+        </ol>
+        <p>You can close this tab.</p>`);
       console.log('\n✅ Created GitHub App:', app.slug, '(App ID', app.id + ')');
       console.log('   Private key:', pemPath);
       console.log('   Env block:  ', envPath);
-      console.log('   Install at: ', `${app.html_url}/installations/new`);
+      console.log('   Install on your repos:', `${app.html_url}/installations/new`);
+      console.log('   Public install link (share with friends):', `https://github.com/apps/${app.slug}`);
       setTimeout(() => { server.close(); process.exit(0); }, 500);
     } catch (err) {
       res.writeHead(500); res.end(String(err));

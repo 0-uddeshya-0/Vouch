@@ -1,26 +1,24 @@
-# Railway config-as-code for the Vouch API service.
+# Railway config-as-code for the Vouch backend (all-in-one: server + worker).
 # https://docs.railway.com/reference/config-as-code
 #
-# Railway provisions Postgres and Redis as separate services (Dashboard ->
-# "+ New" -> Database -> PostgreSQL / Redis), not from this file. After adding
-# them, set this service's Variables to reference them:
+# Railway is a paid host (free trial credit only). For a permanently-free
+# deploy use render.yaml instead (Render free tier + Neon + Upstash).
+#
+# Provision Postgres and Redis as Railway services (Dashboard -> "+ New" ->
+# Database), then set this service's Variables:
 #
 #   DATABASE_URL = ${{Postgres.DATABASE_URL}}
 #   REDIS_URL    = ${{Redis.REDIS_URL}}
-#   GITHUB_APP_ID, GITHUB_PRIVATE_KEY, GITHUB_WEBHOOK_SECRET, VOUCH_MODE,
-#   VOUCH_DASHBOARD_URL, NODE_ENV=production
-#
-# WORKER: create a SECOND service from this same repo. Point its config path at
-# railway.worker.toml (below) OR set its custom start command in the dashboard to:
-#   node node_modules/prisma/build/index.js migrate deploy --schema=prisma/schema.prisma && node apps/api/dist/worker.js
+#   GITHUB_APP_ID, GITHUB_PRIVATE_KEY, GITHUB_WEBHOOK_SECRET,
+#   VOUCH_DASHBOARD_URL, NODE_ENV=production, VOUCH_MODE=deterministic
 
 [build]
 builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-# Runs migrations, then boots the Fastify server from the built dist/ output.
-startCommand = "node node_modules/prisma/build/index.js migrate deploy --schema=prisma/schema.prisma && node apps/api/dist/server.js"
+# Migrate, then boot the Fastify server AND the analysis worker in one process.
+startCommand = "node node_modules/prisma/build/index.js migrate deploy --schema=prisma/schema.prisma && node apps/api/dist/all-in-one.js"
 healthcheckPath = "/health"
 healthcheckTimeout = 100
 restartPolicyType = "on_failure"
