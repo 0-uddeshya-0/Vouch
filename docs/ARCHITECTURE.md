@@ -1,4 +1,10 @@
-# Architecture
+# Vouch — Technical Architecture Document
+
+| | |
+|---|---|
+| **Status** | Live (v0.1, production) |
+| **Last updated** | 2026-06-11 |
+| **Companion docs** | [PRD](PRD.md) · [Security & Access](SECURITY-ACCESS.md) · [Frontend Spec](FRONTEND-SPEC.md) · [Tickets](TICKETS.md) · [Deployment](DEPLOYMENT.md) · [Operations](OPERATIONS.md) |
 
 Vouch is a GitHub App that reviews pull requests for problems AI coding
 assistants introduce: hallucinated packages, committed secrets, known CVEs, and

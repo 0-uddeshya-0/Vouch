@@ -183,6 +183,15 @@ prisma/           Schema + migrations
 render.yaml       Free one-service backend blueprint
 ```
 
+**Documentation suite:**
+[PRD](docs/PRD.md) ·
+[Technical Architecture](docs/ARCHITECTURE.md) ·
+[Security & Access](docs/SECURITY-ACCESS.md) ·
+[Frontend Spec](docs/FRONTEND-SPEC.md) ·
+[Ticket Backlog](docs/TICKETS.md) ·
+[Deployment](docs/DEPLOYMENT.md) ·
+[Operations Runbook](docs/OPERATIONS.md)
+
 Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) and
 [SECURITY.md](SECURITY.md).
 
