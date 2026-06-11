@@ -16,6 +16,7 @@ services:
   - type: keyvalue
     name: vouch-redis
     plan: free
+    region: frankfurt
     # BullMQ requires noeviction so queued jobs are never silently dropped.
     maxmemoryPolicy: noeviction
     ipAllowList: [] # internal connections only
@@ -24,6 +25,7 @@ services:
     name: vouch-api
     runtime: docker
     plan: free
+    region: frankfurt
     dockerfilePath: ./Dockerfile
     dockerContext: .
     # Migrate, then boot server + worker in one process.
