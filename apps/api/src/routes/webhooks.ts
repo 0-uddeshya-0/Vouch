@@ -9,6 +9,7 @@ import Redis from 'ioredis';
 import { env } from '@vouch/config/env';
 import { auditLogger } from '@vouch/core';
 import type { PullRequestWebhookPayload } from '@vouch/types';
+import { cleanupIdempotency } from '../middleware/idempotency';
 
 let analysisQueue: Queue | null = null;
 
@@ -65,6 +66,12 @@ export async function webhookRoutes(fastify: FastifyInstance): Promise<void> {
         error: error instanceof Error ? error.message : 'Unknown error',
       });
 
+      // Release the idempotency key so a redelivery of this failed webhook
+      // is processed instead of being skipped as a duplicate.
+      if (deliveryId) {
+        await cleanupIdempotency(deliveryId);
+      }
+
       reply.code(500);
       return {
         status: 'error',
@@ -84,20 +91,25 @@ async function handlePullRequestEvent(
     return;
   }
 
-  if (!installation?.account || !pull_request || !repository) {
+  if (!installation?.id || !pull_request || !repository) {
     throw new Error('Missing installation, pull_request, or repository');
   }
+
+  // pull_request payloads carry only installation.id — fall back to the repo
+  // owner for account info (the installation event has the full object).
+  const accountLogin = installation.account?.login ?? repository.owner?.login ?? 'unknown';
+  const accountType = installation.account?.type ?? repository.owner?.type ?? 'User';
 
   const inst = await fastify.prisma.installation.upsert({
     where: { githubId: installation.id },
     update: {
-      accountLogin: installation.account.login,
-      accountType: installation.account.type,
+      accountLogin,
+      accountType,
     },
     create: {
       githubId: installation.id,
-      accountLogin: installation.account.login,
-      accountType: installation.account.type,
+      accountLogin,
+      accountType,
       plan: 'free',
       status: 'active',
     },
