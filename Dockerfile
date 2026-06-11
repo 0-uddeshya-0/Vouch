@@ -34,6 +34,9 @@ WORKDIR /app
 
 COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nodejs:nodejs /app/apps/api/dist ./apps/api/dist
+# pnpm places workspace deps (@vouch/*) as symlinks in the package's own
+# node_modules — without this dir, require('@vouch/config/env') fails at boot.
+COPY --from=builder --chown=nodejs:nodejs /app/apps/api/node_modules ./apps/api/node_modules
 COPY --from=builder --chown=nodejs:nodejs /app/apps/api/package.json ./apps/api/package.json
 COPY --from=builder --chown=nodejs:nodejs /app/packages ./packages
 COPY --from=builder --chown=nodejs:nodejs /app/prisma ./prisma
