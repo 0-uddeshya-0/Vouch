@@ -15,8 +15,6 @@
     "metadata": "read"
   },
   "default_events": [
-    "pull_request",
-    "installation",
-    "installation_repositories"
+    "pull_request"
   ]
 }
