@@ -31,12 +31,10 @@ const path = require('path');
 const pkgPath = path.join(process.cwd(), 'apps/api/package.json');
 const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
 pkg.dependencies = pkg.dependencies || {};
+// Only ADD the two bad deps — do not re-sort existing keys, so the diff
+// contains exactly two added lines (like a real PR would).
 pkg.dependencies['express-auth-slop'] = '^1.0.0';
 pkg.dependencies['lodash'] = '^4.17.21';
-const keys = Object.keys(pkg.dependencies).sort();
-const sorted = {};
-for (const k of keys) sorted[k] = pkg.dependencies[k];
-pkg.dependencies = sorted;
 fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
 console.log('Updated apps/api/package.json with dogfood dependencies');
 NODE

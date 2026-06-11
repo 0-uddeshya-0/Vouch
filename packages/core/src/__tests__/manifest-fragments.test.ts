@@ -1,4 +1,7 @@
-import { extractAddedNpmDependencies } from '../parsers/manifest-fragments';
+import {
+  extractAddedNpmDependencies,
+  isRegistryInstallableRange,
+} from '../parsers/manifest-fragments';
 import { extractNpmPackagesFromPatch } from '../analyzers/osv-scanner';
 
 describe('extractAddedNpmDependencies', () => {
@@ -73,5 +76,28 @@ describe('extractAddedNpmDependencies', () => {
     expect(extractAddedNpmDependencies('')).toEqual([]);
     const patch = ['@@ -1,1 +1,2 @@', '+const x = 1;'].join('\n');
     expect(extractAddedNpmDependencies(patch)).toEqual([]);
+  });
+});
+
+describe('isRegistryInstallableRange', () => {
+  it.each(['^1.0.0', '~2.3.4', '4.17.15', '>=3', '*', 'latest', 'next'])(
+    'treats %s as registry-installable',
+    (range) => {
+      expect(isRegistryInstallableRange(range)).toBe(true);
+    }
+  );
+
+  it.each([
+    'workspace:*',
+    'workspace:^1.0.0',
+    'file:../local-pkg',
+    'link:../local-pkg',
+    'portal:../local-pkg',
+    'npm:renamed-pkg@^1.0.0',
+    'git+https://github.com/org/repo.git',
+    'github:org/repo',
+    'https://example.com/pkg.tgz',
+  ])('skips %s (never resolved via the registry)', (range) => {
+    expect(isRegistryInstallableRange(range)).toBe(false);
   });
 });

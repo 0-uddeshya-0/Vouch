@@ -4,7 +4,10 @@ import {
   shouldIgnorePackage,
   type RepoConfig,
 } from '../config/repo-config';
-import { extractAddedNpmDependencies } from '../parsers/manifest-fragments';
+import {
+  extractAddedNpmDependencies,
+  isRegistryInstallableRange,
+} from '../parsers/manifest-fragments';
 import { RegistryClient, defaultRegistryClient } from '../parsers/registry-client';
 import { extractPackageName } from '../parsers/module-utils';
 
@@ -78,7 +81,11 @@ export function createNpmAnalyzer(
       // Handles both whole-file additions (valid JSON) and lines added to an
       // existing manifest (JSON fragments).
       const deps = extractAddedNpmDependencies(patch);
-      for (const { name } of deps) {
+      for (const { name, versionRange } of deps) {
+        // workspace:/file:/git deps never resolve via the registry — skip.
+        if (!isRegistryInstallableRange(versionRange)) {
+          continue;
+        }
         const pkg = extractPackageName(name);
         if (!pkg) {
           continue;

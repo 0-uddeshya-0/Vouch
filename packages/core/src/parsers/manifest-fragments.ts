@@ -116,6 +116,17 @@ export function extractAddedNpmDependencies(patch: string): AddedManifestDepende
   }
 }
 
+/**
+ * True when a version range resolves through the npm registry. Protocol ranges
+ * (workspace:, file:, link:, git, tarball URLs) never do — checking them
+ * against the registry produces guaranteed false "hallucination" findings.
+ */
+export function isRegistryInstallableRange(versionRange: string): boolean {
+  return !/^(?:workspace:|file:|link:|portal:|npm:|git\+|github:|git:|https?:\/\/)/.test(
+    versionRange.trim()
+  );
+}
+
 function dedupe(deps: AddedManifestDependency[]): AddedManifestDependency[] {
   const seen = new Map<string, AddedManifestDependency>();
   for (const dep of deps) {
