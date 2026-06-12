@@ -132,7 +132,19 @@ The router enforces a hard rule: **any LLM failure degrades to deterministic
 findings.** Timeouts, rate limits, and malformed responses are logged and
 swallowed. The check run never fails because a model did.
 
-### 4. Output
+### 4. Maintainer Gate
+
+After findings merge, `evaluateMaintainerGate` (pure, in `core/gate/`)
+renders a per-PR evidence verdict: packages real, no high/critical security
+findings, tests accompany code changes, PR references an issue, dependency
+hygiene (warn-only). Enforcement is audience-aware via the webhook's
+`author_association`: strict for external contributors (the source of slop),
+advisory for OWNER/MEMBER/COLLABORATOR. `vouch.json` overrides with
+`gate: "external" | "all" | "off"`, `requireTests`, `requireLinkedIssue`. An
+enforced gate failure sets the check run to `action_required` and the PR
+comment opens with the contributor-facing checklist of exactly what to fix.
+
+### 5. Output
 
 - **Check run** — `action_required` for security/hallucination findings,
   `neutral` for advisory-only, `success` when clean.

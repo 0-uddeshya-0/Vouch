@@ -23,24 +23,25 @@
 
 ## The problem
 
-AI assistants now write a large share of the code in every pull request, and
-**19.7% of packages recommended by LLMs don't exist** ([USENIX Security 2025](https://www.usenix.org/conference/usenixsecurity25)).
-Attackers register those hallucinated names on npm and PyPI — *slopsquatting* —
-and wait for someone to `npm install` the suggestion. Add hardcoded keys, CVE-pinned
-versions, and three HTTP clients doing one job, and "looks right, isn't" becomes
-the dominant failure mode of AI-era code review.
+Maintainers are drowning. AI-written pull requests arrive five a day per
+contributor, get accepted a third as often as human ones (32.7% vs 84.4%), and
+carry 1.7× more defects — yet someone still has to read every one. Projects
+have shut down under the load, and **19.7% of packages recommended by LLMs
+don't exist** ([USENIX Security 2025](https://www.usenix.org/conference/usenixsecurity25)) —
+names that slopsquatting attackers register and wait behind.
 
-Vouch sits on your pull requests like a skeptical senior engineer. **The checks
-that matter are deterministic** — a package either exists on the registry or it
-doesn't; a version either has a CVE or it doesn't. Every finding ships with
-evidence you can verify in one click, not a confidence-shaped opinion. LLM
-analysis is optional, runs last, and can never block a merge.
+**Vouch is the gate that flips the burden of proof.** Instead of maintainers
+proving a PR is broken, contributors demonstrate it holds up — *before* a human
+spends a minute on it. Every check is deterministic and ships with evidence you
+can verify in one click; LLM analysis is optional, runs last, and can never
+block a merge.
 
-| | Catches | Evidence |
+| | Check | Evidence |
 |---|---|---|
+| 🛡️ | **Maintainer Gate** | per-PR verdict: packages real, tests present, issue linked, no secrets — strict for external contributors, advisory for your team |
 | 👻 | **Hallucinated / slopsquatted packages** | live npm & PyPI lookup — a definitive 404 |
 | 🔑 | **Committed secrets** | 12 credential formats + entropy, with placeholder filtering |
-| 🛡️ | **Known CVEs** | [OSV](https://osv.dev) advisory IDs, aggregated per package |
+| 🚨 | **Known CVEs** | [OSV](https://osv.dev) advisory IDs, aggregated per package |
 | 🧹 | **Dependency slop** | redundant clients, native replacements, declared-but-unused |
 | 🧠 | **Logic flaws** *(opt-in)* | local Ollama (free) or Anthropic Haiku→Sonnet |
 
@@ -52,9 +53,11 @@ This is a real analysis from the live instance — [see it on the PR](https://gi
 <img src="docs/assets/pr-comment.png" alt="Vouch PR comment showing a hallucinated package and lodash CVEs" width="760" />
 </div>
 
-One comment per PR, updated in place on every push — never a wall of stacked
-bot comments. Zero findings means zero comments. Findings flow into a triage
-dashboard with one-click dismissal:
+Every comment now opens with the **Maintainer Gate** — a checklist verdict
+(`🛡️ 1/5 evidence checks passed`) telling the contributor exactly what to fix
+before requesting review. One comment per PR, updated in place on every push —
+never a wall of stacked bot comments. A clean PR gets silence: no comment, a
+green check. Findings flow into a triage dashboard with one-click dismissal:
 
 <div align="center">
 <img src="docs/assets/dashboard-findings.png" alt="Vouch dashboard with severity stats and findings table" width="760" />
@@ -144,11 +147,18 @@ cached, invalid config falls back to defaults):
 
 ```json
 {
+  "gate": "external",
+  "requireTests": true,
+  "requireLinkedIssue": true,
   "ignoreScopes": ["@mycompany"],
   "ignoreDependencies": ["legacy-logger"],
   "slopThreshold": 0.5
 }
 ```
+
+`gate` controls who the Maintainer Gate enforces on: `"external"` (default —
+strict for outside contributors, advisory for owners/members), `"all"`, or
+`"off"`.
 
 **Key environment variables** — see [`.env.example`](.env.example) for all:
 
