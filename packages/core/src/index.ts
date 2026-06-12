@@ -19,6 +19,8 @@ export {
 } from './analyzers/quality-analyzer';
 export type { QualityAnalyzerInput } from './analyzers/quality-analyzer';
 export type { NativeAlternativeInfo, OverlapGroup } from './analyzers/quality-maps';
+export { evaluateMaintainerGate, isTestFile, referencesIssue } from './gate/maintainer-gate';
+export type { GateInput, GateItem, GateResult } from './gate/maintainer-gate';
 export { scanForSecrets } from './security/secrets';
 export { entropyScanner } from './security/entropy';
 export { formatPRComment } from './format/comment';

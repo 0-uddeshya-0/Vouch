@@ -28,6 +28,10 @@ export interface PullRequestWebhookPayload {
     number: number;
     head: { sha: string; ref: string };
     base: { sha: string; ref: string };
+    title?: string;
+    body?: string | null;
+    /** OWNER | MEMBER | COLLABORATOR | CONTRIBUTOR | FIRST_TIME_CONTRIBUTOR | NONE */
+    author_association?: string;
   };
   repository?: {
     id: number;

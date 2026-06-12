@@ -149,6 +149,9 @@ async function handlePullRequestEvent(
     prNumber: pull_request.number,
     commitSha: pull_request.head.sha,
     defaultBranch: repository.default_branch,
+    prTitle: pull_request.title ?? '',
+    prBody: pull_request.body ?? null,
+    authorAssociation: pull_request.author_association ?? 'NONE',
   }, {
     attempts: 3,
     backoff: {
