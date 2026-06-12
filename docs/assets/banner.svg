@@ -1,36 +1,19 @@
-<svg width="880" height="200" viewBox="0 0 880 200" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Vouch — the AI code reviewer that doesn't trust AI">
+<svg width="880" height="150" viewBox="0 0 880 150" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Vouch — the AI code reviewer that doesn't trust AI">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="880" y2="200" gradientUnits="userSpaceOnUse">
+    <linearGradient id="bg" x1="0" y1="0" x2="880" y2="150" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#020617"/>
       <stop offset="1" stop-color="#0f172a"/>
     </linearGradient>
-    <linearGradient id="accent" x1="320" y1="0" x2="560" y2="0" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#34d399"/>
-      <stop offset="1" stop-color="#22d3ee"/>
-    </linearGradient>
   </defs>
 
-  <rect width="880" height="200" rx="16" fill="url(#bg)"/>
-  <rect x="0.5" y="0.5" width="879" height="199" rx="15.5" stroke="#1e293b"/>
+  <rect width="880" height="150" rx="14" fill="url(#bg)"/>
+  <rect x="0.5" y="0.5" width="879" height="149" rx="13.5" stroke="#1e293b"/>
 
-  <!-- check-shield mark -->
-  <g transform="translate(64,52)">
-    <path d="M48 0 L96 18 V58 C96 84 76 102 48 112 C20 102 0 84 0 58 V18 Z"
-          fill="#022c22" stroke="#34d399" stroke-width="3"/>
-    <path d="M28 56 L44 72 L72 38" stroke="url(#accent)" stroke-width="9"
-          stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-  </g>
+  <text x="440" y="72" text-anchor="middle"
+        font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif"
+        font-size="44" font-weight="700" fill="#f8fafc" letter-spacing="-0.5">Vouch</text>
 
-  <text x="200" y="98" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif"
-        font-size="58" font-weight="700" fill="#f8fafc" letter-spacing="-1">Vouch</text>
-
-  <text x="200" y="138" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif"
-        font-size="22" fill="#94a3b8">The AI code reviewer that <tspan fill="#34d399" font-weight="600">doesn&#8217;t trust AI</tspan>.</text>
-
-  <!-- diff motif -->
-  <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="14">
-    <text x="560" y="76" fill="#f87171">- import retry from 'axios-retry-pro'</text>
-    <text x="560" y="100" fill="#64748b">  // 404 on npm — hallucinated</text>
-    <text x="560" y="124" fill="#34d399">+ import retry from 'axios-retry'</text>
-  </g>
+  <text x="440" y="112" text-anchor="middle"
+        font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif"
+        font-size="19" fill="#94a3b8">The AI code reviewer that <tspan fill="#34d399" font-weight="600">doesn&#8217;t trust AI</tspan></text>
 </svg>
