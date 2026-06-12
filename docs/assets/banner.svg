@@ -15,5 +15,5 @@
 
   <text x="440" y="112" text-anchor="middle"
         font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif"
-        font-size="19" fill="#94a3b8">The AI code reviewer that <tspan fill="#34d399" font-weight="600">doesn&#8217;t trust AI</tspan></text>
+        font-size="19" fill="#94a3b8">The PR gate for the <tspan fill="#34d399" font-weight="600">AI-slop era</tspan></text>
 </svg>

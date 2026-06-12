@@ -21,6 +21,7 @@ Status reflects 2026-06-11. Done tickets are kept for traceability with the
 | VOUCH-10 | `pnpm demo` + dev-only demo mode | US-6 |
 | VOUCH-11 | Free-tier deploy: all-in-one mode, render.yaml, app-manifest script | §3 Goal 4 |
 | VOUCH-12 | Brand assets: banner, icon, favicon set | — |
+| VOUCH-13 | Maintainer Gate: burden-of-proof verdict, audience-aware enforcement | FR-13, US-7 |
 
 ## P0 — safety & correctness
 

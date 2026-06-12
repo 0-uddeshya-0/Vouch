@@ -26,10 +26,12 @@ it."**
 
 ## 2. Product vision
 
-The skeptical senior engineer on every pull request: deterministic,
-evidence-backed checks that run in seconds, cost nothing, and never block on a
-model's opinion. Every finding carries proof a reviewer can verify in one
-click (a registry 404, a CVE ID, a matched credential pattern, an AST fact).
+**The PR gate for the AI-slop era.** Vouch shifts the burden of proof from
+maintainer to contributor: a PR must demonstrate it holds up — packages real,
+tests present, issue linked, no secrets or CVEs — before a human reviews it.
+Checks are deterministic, run in seconds, cost nothing, and never block on a
+model's opinion. Every finding carries proof verifiable in one click (a
+registry 404, a CVE ID, a matched credential pattern, an AST fact).
 
 ## 3. Goals and non-goals
 
@@ -92,6 +94,14 @@ rejected with a readable error.*
 locally in under two minutes without creating a GitHub App (`pnpm demo`), and
 install the hosted app in two clicks.
 
+**US-7 — Burden of proof.** As a maintainer, external PRs that lack tests, a
+linked issue, or contain unverifiable packages are gated (`action_required`)
+with a contributor-facing checklist of what to fix — so I review once, when
+it's worth my time. *AC: gate strict for non-OWNER/MEMBER/COLLABORATOR authors
+by default; advisory for the team; `vouch.json` can widen (`"all"`), narrow
+(`"off"`), or disable individual checks; dependency-hygiene items never block
+on their own.*
+
 ## 6. Functional requirements
 
 | ID | Requirement | Priority |
@@ -108,6 +118,7 @@ install the hosted app in two clicks.
 | FR-10 | Optional LLM tier (`deterministic`/`zero-cost`/`full`); failures never block | P1 |
 | FR-11 | Dashboard: GitHub OAuth (allowlisted), filters, dismissal with audit fields | P1 |
 | FR-12 | EU AI Act Art. 50 transparency footer on all AI-system output | P0 |
+| FR-13 | Maintainer Gate: per-PR evidence verdict (packages real, no secrets/CVEs, tests present, issue linked); strict for external contributors by default, configurable via `gate`/`requireTests`/`requireLinkedIssue` | P0 |
 
 ## 7. Non-functional requirements
 

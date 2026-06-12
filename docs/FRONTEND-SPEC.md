@@ -58,23 +58,30 @@ Shared layout: sticky top nav (brand wordmark → `/`, "Findings" → `/findings
 
 ### 3.1 Landing (`/`)
 
+Positioning: "the PR gate for the AI-slop era" — crisis-led, maintainer-first.
+Left-aligned editorial hero (no gradient text, no numbered card scaffolding).
+
 Sections in order:
-1. **Badge pill** — "Deterministic-first PR review".
-2. **H1** — "The AI code reviewer that *doesn't trust AI*" (gradient span on
-   the key phrase).
-3. **Subhead** — one paragraph, ≤ 3 lines at `max-w-2xl`.
-4. **Auth error banner** (conditional) — maps NextAuth `?error=` codes to
+1. **Auth error banner** (conditional) — maps NextAuth `?error=` codes to
    human messages (`AccessDenied` → allowlist explanation; unknown codes fall
    back to a generic retry line).
-5. **CTA row** — primary: `SignInButton` (client component calling
-   `signIn('github', { callbackUrl: '/findings' })`) or "View findings →"
-   when a session/demo exists; secondary: "README & setup" outbound link.
-6. **Pipeline grid** — 4 numbered cards (registry verification, secrets & CVE,
-   slop detection, optional AI), staggered fade-up.
-7. **Example block** — mock diff with red/green lines and explanatory caption.
+2. **Hero (2-col on lg)** — H1 "Your reviewers are drowning in AI slop."
+   (solid white, emerald only on the key phrase); two short crisis/solution
+   paragraphs with real stats (32.7% vs 84.4%, 1.7×); CTA row
+   (`SignInButton` or "View findings →" + install link); trust line
+   ("Deterministic checks only…").
+3. **Hero artifact** — a `figure` mocking the real bot comment: header bar
+   (`vouch-review[bot] commented`, "review gated" pill), the Maintainer Gate
+   checklist (✅/❌ items with detail lines), closing caption. The product is
+   the picture.
+4. **Evidence section** — prose heading + `dl` definition list
+   (registry 404 / OSV advisory ID / AST, not regex vibes). No cards.
+5. **Enforcement section (2-col)** — prose explaining audience-aware
+   strictness + a real copyable `vouch.json` code block.
+6. **Closing CTA strip** — bordered top, headline + install/source buttons.
 
-States: signed-out (default) · signed-in (shows login chip) · demo
-(amber notice) · auth-error (red banner).
+States: signed-out (default) · signed-in · demo (amber notice) ·
+auth-error (red banner).
 
 ### 3.2 Findings (`/findings`)
 
