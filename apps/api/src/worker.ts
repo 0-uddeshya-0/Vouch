@@ -28,6 +28,7 @@ import {
   fetchRepoConfig,
   collectManifestPackages,
   checkVulnerabilities,
+  evaluateMaintainerGate,
   VOUCH_COMMENT_MARKER,
   type RepoConfig,
 } from '@vouch/core';
@@ -43,6 +44,10 @@ interface AnalysisJob {
   prNumber: number;
   commitSha: string;
   defaultBranch: string;
+  /** Optional: jobs enqueued before the gate feature lack these */
+  prTitle?: string;
+  prBody?: string | null;
+  authorAssociation?: string;
 }
 
 interface PrFileInput {
@@ -330,6 +335,15 @@ const worker = new Worker<AnalysisJob>('pr-analysis', async (job) => {
 
     const modelLabel = resolveModelLabel(env.VOUCH_MODE, llmTier1Calls, llmTier2Calls);
 
+    const gate = repoConfig.gate === 'off' ? undefined : evaluateMaintainerGate({
+      files: prFiles,
+      prTitle: job.data.prTitle ?? '',
+      prBody: job.data.prBody,
+      authorAssociation: job.data.authorAssociation ?? 'NONE',
+      findings: allFindings,
+      config: repoConfig,
+    });
+
     await checkRunManager.updateCheckRun(
       checkRunId,
       { owner, repo, sha: commitSha },
@@ -341,6 +355,7 @@ const worker = new Worker<AnalysisJob>('pr-analysis', async (job) => {
         llmTier1Calls,
         llmTier2Calls,
         estimatedCost,
+        gate,
       }
     );
 
@@ -353,6 +368,7 @@ const worker = new Worker<AnalysisJob>('pr-analysis', async (job) => {
       estimatedCost,
       prNumber,
       dashboardBaseUrl: env.VOUCH_DASHBOARD_URL,
+      gate,
     });
 
     if (comment) {

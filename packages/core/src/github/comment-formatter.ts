@@ -2,6 +2,8 @@
  * Pure Markdown formatters for GitHub PR comments and check-run summaries.
  */
 
+import type { GateResult } from '../gate/maintainer-gate';
+
 export const DEFAULT_DASHBOARD_URL = 'http://localhost:3002';
 export const MAX_TABLE_FINDINGS = 10;
 
@@ -29,6 +31,7 @@ export interface CommentMeta {
   estimatedCost: number;
   prNumber?: number;
   dashboardBaseUrl?: string;
+  gate?: GateResult;
 }
 
 export type FindingCategory = 'security' | 'quality';
@@ -173,14 +176,45 @@ export interface FormattedComment {
   truncated: boolean;
 }
 
+const GATE_STATUS_ICON: Record<string, string> = { pass: '✅', fail: '❌', warn: '⚠️' };
+
+function renderGateSection(gate: GateResult): string[] {
+  const total = gate.items.length;
+  const lines: string[] = [
+    `### 🛡️ Maintainer Gate — ${gate.passedCount}/${total} evidence checks passed`,
+    '',
+  ];
+
+  if (gate.verdict === 'fail') {
+    lines.push(
+      '> [!CAUTION]',
+      '> This pull request has not met the evidence bar for review. Please address the ❌ items below — maintainer review is gated until they pass.',
+      ''
+    );
+  } else if (gate.verdict === 'advisory-fail') {
+    lines.push(
+      '> [!NOTE]',
+      '> Some evidence checks did not pass (advisory for this author).',
+      ''
+    );
+  }
+
+  for (const item of gate.items) {
+    lines.push(`- ${GATE_STATUS_ICON[item.status]} **${item.label}** — ${item.detail}`);
+  }
+  lines.push('');
+  return lines;
+}
+
 /**
- * Build PR comment Markdown. Returns `null` when there are no findings (spam prevention).
+ * Build PR comment Markdown. Returns `null` when there are no findings and the
+ * gate fully passed (spam prevention — silence is the reward for clean PRs).
  */
 export function formatPRComment(
   findings: FormattedFinding[],
   meta: CommentMeta
 ): string | null {
-  if (findings.length === 0) {
+  if (findings.length === 0 && (!meta.gate || meta.gate.verdict === 'pass')) {
     return null;
   }
 
@@ -195,6 +229,10 @@ export function formatPRComment(
     `Analysis \`${meta.analysisId}\` · model **${meta.model}** · confidence threshold **${meta.confidence}**`,
     '',
   ];
+
+  if (meta.gate) {
+    lines.push(...renderGateSection(meta.gate));
+  }
 
   if (security.some((f) => f.severity.toLowerCase() === 'critical')) {
     lines.push('> [!CAUTION]', '> Critical security or hallucination issues require attention before merge.', '');
@@ -244,12 +282,34 @@ export interface CheckRunPresentation {
 
 export function buildCheckRunPresentation(
   findings: FormattedFinding[],
-  meta: Pick<CommentMeta, 'model' | 'analysisId'>
+  meta: Pick<CommentMeta, 'model' | 'analysisId' | 'gate'>
 ): CheckRunPresentation {
+  const gate = meta.gate;
+
+  // An enforced gate failure overrides everything: the evidence bar was not met.
+  if (gate && gate.verdict === 'fail') {
+    const failed = gate.items.filter((i) => i.status === 'fail');
+    return {
+      title: `Evidence gate: ${gate.failedCount} of ${gate.items.length} checks failed`,
+      summary:
+        `This PR has not met the evidence bar for maintainer review. Failed: ` +
+        failed.map((i) => i.label.toLowerCase()).join('; ') +
+        '. See the Vouch comment on the PR for what to fix.',
+      conclusion: 'action_required',
+      text: gate.items
+        .map((i) => `- [${i.status === 'pass' ? 'x' : ' '}] ${i.label} — ${i.detail}`)
+        .join('\n'),
+    };
+  }
+
   if (findings.length === 0) {
+    const gateNote =
+      gate && gate.items.length > 0
+        ? ` Evidence gate passed (${gate.passedCount}/${gate.items.length}).`
+        : '';
     return {
       title: 'Vouch found no issues',
-      summary: 'No security, hallucination, or dependency quality findings were detected.',
+      summary: `No security, hallucination, or dependency quality findings were detected.${gateNote}`,
       conclusion: 'success',
       text: 'All checks passed.',
     };

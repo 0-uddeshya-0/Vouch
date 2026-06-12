@@ -8,6 +8,10 @@ export const repoConfigFileSchema = z.object({
   ignoreScopes: z.array(z.string()).optional(),
   ignoreDependencies: z.array(z.string()).optional(),
   slopThreshold: z.number().min(0).max(1).optional(),
+  /** Who the Maintainer Gate enforces on: external contributors (default), everyone, or nobody */
+  gate: z.enum(['external', 'all', 'off']).optional(),
+  requireTests: z.boolean().optional(),
+  requireLinkedIssue: z.boolean().optional(),
 });
 
 export type RepoConfigFile = z.infer<typeof repoConfigFileSchema>;
@@ -16,12 +20,18 @@ export interface RepoConfig {
   ignoreScopes: string[];
   ignoreDependencies: string[];
   slopThreshold: number;
+  gate: 'external' | 'all' | 'off';
+  requireTests: boolean;
+  requireLinkedIssue: boolean;
 }
 
 export const DEFAULT_REPO_CONFIG: RepoConfig = {
   ignoreScopes: [],
   ignoreDependencies: [],
   slopThreshold: 0.5,
+  gate: 'external',
+  requireTests: true,
+  requireLinkedIssue: true,
 };
 
 const SEVERITY_RANK: Record<string, number> = {
@@ -42,6 +52,9 @@ export function resolveRepoConfig(file: RepoConfigFile | undefined): RepoConfig 
     ignoreScopes: file.ignoreScopes ?? [],
     ignoreDependencies: file.ignoreDependencies ?? [],
     slopThreshold: file.slopThreshold ?? DEFAULT_REPO_CONFIG.slopThreshold,
+    gate: file.gate ?? DEFAULT_REPO_CONFIG.gate,
+    requireTests: file.requireTests ?? DEFAULT_REPO_CONFIG.requireTests,
+    requireLinkedIssue: file.requireLinkedIssue ?? DEFAULT_REPO_CONFIG.requireLinkedIssue,
   };
 }
 
