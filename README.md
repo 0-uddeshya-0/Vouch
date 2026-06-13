@@ -8,7 +8,7 @@
 [![Install the App](https://img.shields.io/badge/GitHub%20App-install%20vouch--review-34d399?style=flat-square&logo=github)](https://github.com/apps/vouch-review)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.4-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-90%20passing-success?style=flat-square)](packages/core/src/__tests__)
+[![Tests](https://img.shields.io/badge/tests-129%20passing-success?style=flat-square)](packages/core/src/__tests__)
 [![Runs free](https://img.shields.io/badge/infra%20cost-%240%2Fmonth-22c55e?style=flat-square)](docs/DEPLOYMENT.md)
 
 **[Install on your repo](https://github.com/apps/vouch-review)** ·
@@ -183,7 +183,7 @@ docker compose -f infra/docker/docker-compose.dev.yml up -d db redis
 npx prisma migrate dev
 pnpm dev                          # API + worker + dashboard
 
-pnpm --filter @vouch/core test    # 90 tests
+pnpm --filter @vouch/core test    # 129 tests
 pnpm build && pnpm typecheck
 ```
 
