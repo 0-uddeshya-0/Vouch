@@ -29,9 +29,15 @@ export const DEFAULT_REPO_CONFIG: RepoConfig = {
   ignoreScopes: [],
   ignoreDependencies: [],
   slopThreshold: 0.5,
+  // Enforce the evidence gate on external contributors out of the box. The
+  // fact-based checks (packages real, no high/critical secrets/CVEs) and the
+  // near-universal "tests accompany code" norm are on by default; the
+  // project-specific "must link an issue" policy is opt-in, since many repos
+  // (personal sites, libraries) have no issue culture and blocking on it
+  // would be friction without signal.
   gate: 'external',
   requireTests: true,
-  requireLinkedIssue: true,
+  requireLinkedIssue: false,
 };
 
 const SEVERITY_RANK: Record<string, number> = {

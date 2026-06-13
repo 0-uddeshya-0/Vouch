@@ -149,7 +149,7 @@ cached, invalid config falls back to defaults):
 {
   "gate": "external",
   "requireTests": true,
-  "requireLinkedIssue": true,
+  "requireLinkedIssue": false,
   "ignoreScopes": ["@mycompany"],
   "ignoreDependencies": ["legacy-logger"],
   "slopThreshold": 0.5
@@ -158,7 +158,11 @@ cached, invalid config falls back to defaults):
 
 `gate` controls who the Maintainer Gate enforces on: `"external"` (default —
 strict for outside contributors, advisory for owners/members), `"all"`, or
-`"off"`.
+`"off"`. The fact-based checks (packages real, no high/critical secrets or CVEs)
+and "tests accompany code" are enforced by default; `requireLinkedIssue` is
+opt-in, since many repos have no issue culture. Low-severity notes (the
+high-entropy secret backstop, medium CVEs) are always advisory and never block
+a merge.
 
 **Key environment variables** — see [`.env.example`](.env.example) for all:
 

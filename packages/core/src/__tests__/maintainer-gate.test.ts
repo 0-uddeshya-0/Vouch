@@ -73,9 +73,21 @@ describe('evaluateMaintainerGate', () => {
     expect(result.items.find((i) => i.id === 'tests-present')?.status).toBe('pass');
   });
 
-  it('fails enforced when no issue is referenced', () => {
+  it('does not check linked-issue by default (opt-in)', () => {
     const result = evaluateMaintainerGate(
       gateInput({ prTitle: 'feat: add thing', prBody: 'no reference here' })
+    );
+    expect(result.items.find((i) => i.id === 'linked-issue')).toBeUndefined();
+    expect(result.verdict).toBe('pass');
+  });
+
+  it('fails enforced when requireLinkedIssue is on and no issue is referenced', () => {
+    const result = evaluateMaintainerGate(
+      gateInput({
+        prTitle: 'feat: add thing',
+        prBody: 'no reference here',
+        config: { ...DEFAULT_REPO_CONFIG, requireLinkedIssue: true },
+      })
     );
     expect(result.verdict).toBe('fail');
     expect(result.items.find((i) => i.id === 'linked-issue')?.status).toBe('fail');
@@ -134,7 +146,7 @@ describe('evaluateMaintainerGate', () => {
     expect(result.verdict).toBe('fail');
   });
 
-  it('omits checks disabled via config', () => {
+  it('runs only the fact-based checks when process checks are disabled', () => {
     const result = evaluateMaintainerGate(
       gateInput({
         prTitle: 'no issue ref',
@@ -148,5 +160,15 @@ describe('evaluateMaintainerGate', () => {
       'dependency-hygiene',
     ]);
     expect(result.verdict).toBe('pass');
+  });
+
+  it('default config checks packages, security, tests, and hygiene — not linked-issue', () => {
+    const result = evaluateMaintainerGate(gateInput());
+    expect(result.items.map((i) => i.id)).toEqual([
+      'real-packages',
+      'no-security-findings',
+      'tests-present',
+      'dependency-hygiene',
+    ]);
   });
 });

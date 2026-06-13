@@ -105,8 +105,11 @@ never cloned**) and runs, in order:
   registry-checked — they can't exist on npm by definition.
 - **Secret scanning.** Twelve credential formats (AWS, GitHub, Anthropic,
   Stripe, Slack, Google, npm, GitLab, SendGrid, Twilio, private-key headers)
-  plus an entropy heuristic, with placeholder filtering (`example`, `xxxx`,
-  `your_…`).
+  with placeholder filtering, plus a deliberately-precise entropy *backstop*
+  for unknown token formats. The backstop only fires when a high-entropy
+  candidate token sits next to a secret-context keyword on a non-URL,
+  non-lockfile line — so public URLs, identifiers, and hashes never trip it.
+  It is severity `low` and never blocks a merge.
 - **Slop detection.** Redundant dependency groups (multiple HTTP clients),
   packages with native replacements (`uuid` → `crypto.randomUUID()`), and
   declared-but-never-imported packages, tunable per-repo via `vouch.json`.
