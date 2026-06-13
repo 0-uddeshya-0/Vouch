@@ -70,8 +70,21 @@ export function classifyFinding(finding: FormattedFinding): FindingCategory {
   return 'security';
 }
 
+/**
+ * A finding blocks the merge (sets the check run to action_required) only when
+ * it is a hallucinated package or a high/critical security finding. Low/medium
+ * security notes (e.g. the entropy backstop, medium CVEs) are surfaced but
+ * advisory — this keeps the check-run conclusion consistent with the Maintainer
+ * Gate's own security check, which also fails only on high/critical.
+ */
 export function isBlockingFinding(finding: FormattedFinding): boolean {
-  return classifyFinding(finding) === 'security';
+  if (finding.type === 'hallucination') {
+    return true;
+  }
+  if (finding.type === 'security') {
+    return HIGH_SEVERITIES.has(finding.severity.toLowerCase());
+  }
+  return false;
 }
 
 export function hasBlockingFindings(findings: FormattedFinding[]): boolean {
