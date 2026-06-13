@@ -96,26 +96,3 @@ export async function verifySignature(
   });
 }
 
-/**
- * Test helper: Generate a valid GitHub webhook signature
- * Use this for testing webhook handlers
- */
-export function generateTestSignature(payload: string, secret: string = WEBHOOK_SECRET): string {
-  const hmac = crypto.createHmac('sha256', secret);
-  return 'sha256=' + hmac.update(payload, 'utf8').digest('hex');
-}
-
-/**
- * Test helper: Verify signature without throwing
- * Returns boolean for test assertions
- */
-export function verifyTestSignature(payload: string, signature: string, secret: string = WEBHOOK_SECRET): boolean {
-  const hmac = crypto.createHmac('sha256', secret);
-  const digest = 'sha256=' + hmac.update(payload, 'utf8').digest('hex');
-  
-  const sigBuf = Buffer.from(signature, 'utf8');
-  const digestBuf = Buffer.from(digest, 'utf8');
-  
-  return sigBuf.length === digestBuf.length && 
-         crypto.timingSafeEqual(sigBuf, digestBuf);
-}

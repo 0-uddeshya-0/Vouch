@@ -68,13 +68,7 @@ export function createRateLimiter(config: Partial<RateLimitConfig> = {}) {
   };
 }
 
-// Webhook-specific rate limiter (more permissive)
-export const webhookRateLimiter = createRateLimiter({
-  maxRequests: 1000,
-  windowSeconds: 60,
-});
-
-// API rate limiter (more restrictive)
+// API rate limiter for the admin /api/v1 routes
 export const apiRateLimiter = createRateLimiter({
   maxRequests: 100,
   windowSeconds: 60,
