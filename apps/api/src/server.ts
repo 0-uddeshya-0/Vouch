@@ -8,7 +8,7 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { verifySignature, checkIdempotency } from './middleware';
 import { registerRawBodyCapture } from './middleware/raw-body';
-import { githubAuthPlugin, prismaPlugin } from './plugins';
+import { prismaPlugin } from './plugins';
 import { webhookRoutes, healthRoutes, installationRoutes } from './routes';
 
 const server = Fastify({
@@ -30,7 +30,6 @@ async function registerPlugins(): Promise<void> {
   });
 
   await server.register(prismaPlugin);
-  await server.register(githubAuthPlugin);
 }
 
 async function registerRoutes(): Promise<void> {

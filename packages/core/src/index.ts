@@ -23,12 +23,11 @@ export { evaluateMaintainerGate, isTestFile, referencesIssue } from './gate/main
 export type { GateInput, GateItem, GateResult } from './gate/maintainer-gate';
 export { scanForSecrets } from './security/secrets';
 export { entropyScanner } from './security/entropy';
-export { formatPRComment } from './format/comment';
 export {
   VOUCH_COMMENT_MARKER,
   buildCheckRunPresentation,
   classifyFinding,
-  formatPRComment as formatGitHubPRComment,
+  formatPRComment,
   hasBlockingFindings,
 } from './github/comment-formatter';
 export type { CommentMeta, FormattedFinding } from './github/comment-formatter';

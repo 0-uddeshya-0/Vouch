@@ -119,7 +119,7 @@ async function main(): Promise<void> {
     analyzeDependencyQuality,
     collectManifestPackages,
     checkVulnerabilities,
-    formatGitHubPRComment,
+    formatPRComment,
     buildCheckRunPresentation,
     DEFAULT_REPO_CONFIG,
   } = core;
@@ -217,7 +217,7 @@ async function main(): Promise<void> {
     prNumber: DEMO_PR_NUMBER,
     dashboardBaseUrl: process.env.VOUCH_DASHBOARD_URL ?? 'http://localhost:3002',
   };
-  const comment = formatGitHubPRComment(findings, meta);
+  const comment = formatPRComment(findings, meta);
   const checkRun = buildCheckRunPresentation(findings, meta);
 
   const fs = await import('node:fs');
