@@ -94,12 +94,15 @@ rejected with a readable error.*
 locally in under two minutes without creating a GitHub App (`pnpm demo`), and
 install the hosted app in two clicks.
 
-**US-7 — Burden of proof.** As a maintainer, external PRs that lack tests, a
-linked issue, or contain unverifiable packages are gated (`action_required`)
-with a contributor-facing checklist of what to fix — so I review once, when
-it's worth my time. *AC: gate strict for non-OWNER/MEMBER/COLLABORATOR authors
-by default; advisory for the team; `vouch.json` can widen (`"all"`), narrow
-(`"off"`), or disable individual checks; dependency-hygiene items never block
+**US-7 — Burden of proof.** As a maintainer, external PRs that contain
+unverifiable packages, high/critical secrets/CVEs, or untested code are gated
+(`action_required`) with a contributor-facing checklist of what to fix — so I
+review once, when it's worth my time. *AC: gate strict for
+non-OWNER/MEMBER/COLLABORATOR authors by default, advisory for the team. The
+fact-based checks (packages real, no high/critical security) and `requireTests`
+are enforced by default; `requireLinkedIssue` is opt-in (off by default, too
+project-specific). `vouch.json` widens (`"all"`), narrows (`"off"`), or toggles
+individual checks. Low-severity notes and dependency-hygiene items never block
 on their own.*
 
 ## 6. Functional requirements
@@ -118,7 +121,7 @@ on their own.*
 | FR-10 | Optional LLM tier (`deterministic`/`zero-cost`/`full`); failures never block | P1 |
 | FR-11 | Dashboard: GitHub OAuth (allowlisted), filters, dismissal with audit fields | P1 |
 | FR-12 | EU AI Act Art. 50 transparency footer on all AI-system output | P0 |
-| FR-13 | Maintainer Gate: per-PR evidence verdict (packages real, no secrets/CVEs, tests present, issue linked); strict for external contributors by default, configurable via `gate`/`requireTests`/`requireLinkedIssue` | P0 |
+| FR-13 | Maintainer Gate: per-PR evidence verdict (packages real, no high/critical secrets/CVEs, tests present; issue-link opt-in); strict for external contributors by default, configurable via `gate`/`requireTests`/`requireLinkedIssue`; low-severity findings never block | P0 |
 
 ## 7. Non-functional requirements
 
@@ -129,7 +132,7 @@ on their own.*
 | Reliability | Registry/OSV/LLM outages degrade, never fail the check run erroneously |
 | Security | See [SECURITY-ACCESS.md](SECURITY-ACCESS.md); auth fails closed, infra fails open |
 | Privacy | No repo cloning; only PR diffs read; only package *names* sent to third parties |
-| Testability | Core analysis pure + unit-tested (90 tests); container boot verified before deploy |
+| Testability | Core analysis pure + unit-tested (129 tests); container boot verified before deploy |
 
 ## 8. Success metrics
 
