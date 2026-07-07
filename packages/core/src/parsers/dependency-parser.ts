@@ -242,14 +242,19 @@ function collectPythonFromNode(
     }
     const anchor = modNode ?? node;
     const line = mapRow(anchor.startPosition.row);
-    const stripped = moduleText.replace(/^\.+/, '').trim();
-    const topLevel = stripped.split('.').filter(Boolean)[0] ?? stripped;
-    const label = `from ${moduleText} import ${nameBits.length > 0 ? nameBits.join(', ') : '…'}`;
-    out.push({
-      line,
-      module: topLevel || moduleText,
-      name: label,
-    });
+    // Relative imports (`from . import x`, `from .api import y`, `from ..pkg import z`)
+    // are first-party — they can never refer to a registry package. The previous code
+    // stripped the leading dots and emitted the remainder, so `.api` was reported as the
+    // PyPI package `api` (a false hallucination finding). Only emit absolute imports.
+    if (!moduleText.startsWith('.')) {
+      const topLevel = moduleText.split('.').filter(Boolean)[0] ?? moduleText;
+      const label = `from ${moduleText} import ${nameBits.length > 0 ? nameBits.join(', ') : '…'}`;
+      out.push({
+        line,
+        module: topLevel || moduleText,
+        name: label,
+      });
+    }
   } else if (node.type === 'call_expression' || node.type === 'call') {
     const func = node.namedChildren.find((c) => c.type === 'attribute' || c.type === 'identifier');
     const text = func?.text ?? '';
