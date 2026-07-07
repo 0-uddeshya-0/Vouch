@@ -91,6 +91,35 @@ describe('dependency-parser (Python)', () => {
     expect(mods.some((m) => m.includes('requests') || m === 'requests')).toBe(true);
   });
 
+  it('ignores relative (first-party) imports so they are not flagged as registry packages', () => {
+    const patch = `
+@@ -0,0 +1,4 @@
++from .api import behavior
++from .exceptions import ConfigurationError
++from ..pkg import helper
++from . import sibling
+`;
+    const found = extractPythonImports(patch);
+    // None of these are registry packages; the parser must emit nothing for them.
+    expect(found).toHaveLength(0);
+    const mods = found.map((f) => f.module);
+    expect(mods).not.toContain('api');
+    expect(mods).not.toContain('exceptions');
+    expect(mods).not.toContain('pkg');
+  });
+
+  it('still extracts absolute imports that sit next to relative ones', () => {
+    const patch = `
+@@ -0,0 +1,2 @@
++from .local import thing
++from requests.sessions import Session
+`;
+    const found = extractPythonImports(patch);
+    const mods = found.map((f) => f.module);
+    expect(mods).toContain('requests');
+    expect(mods).not.toContain('local');
+  });
+
   it('extracts importlib.import_module', () => {
     const patch = `
 @@ -1 +1,2 @@
